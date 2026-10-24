@@ -1,0 +1,18 @@
+{
+  "tickMs": 1000,
+  "selfReport": {
+    "awayMinutes": 5,
+    "popupTimeoutSec": 60
+  },
+  "categories": {
+    "distraction": [
+      "youtube", "linkedin", "facebook", "instagram", "twitter", "reddit", "tiktok",
+      "netflix", "twitch", "whatsapp", "discord", "spotify", "steam"
+    ],
+    "onTask": [
+      "visual studio", "code", "word", "excel", "powerpoint", "notion", "overleaf",
+      "terminal", "powershell", "acrobat", "pdf", "google docs", "stack overflow", "github"
+    ]
+  },
+  "Iterations":["Take a 60 second brake.", "Take a 5 minute break", "Go for a walk outside", "Stretch. Palms to the sky."]
+}

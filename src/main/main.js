@@ -4,7 +4,7 @@
 
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
-const config = require('../config');
+const { getConfig } = require('../config');
 const { readActiveWindow } = require('./windowTracker');
 const { startInputRate, stopInputRate, readInputRate } = require('./inputRate');
 const { startRecording, record, stopRecording } = require('./recorder');
@@ -64,7 +64,9 @@ function createWindow() {
   });
 
   // The every-second loop: collect a reading from each sensor.
-  const timer = setInterval(async () => {
+  // Each round schedules the next one, so a changed tickMs in the settings applies straight away.
+  let timer = null;
+  async function tick() {
     try {
       handleReading(await readActiveWindow());
     } catch (err) {
@@ -72,9 +74,11 @@ function createWindow() {
     }
     handleReading(readInputRate());
     if (presageRunning) handleReading(readPresageFace());
-  }, config.tickMs);
+    if (!win.isDestroyed()) timer = setTimeout(tick, getConfig().tickMs);
+  }
+  timer = setTimeout(tick, getConfig().tickMs);
 
-  win.on('closed', () => clearInterval(timer));
+  win.on('closed', () => clearTimeout(timer));
 }
 
 // Electron is ready once its internals have started.

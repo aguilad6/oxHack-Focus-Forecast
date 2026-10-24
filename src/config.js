@@ -1,26 +1,73 @@
 // All the numbers and lists we might want to tweak, in one place.
+//
+// Defaults live in presets.json (next to this file). The user's own settings live in
+// ~/.config/focus-forecast/config.json, which is created from the defaults on first run.
+// Anything missing from the user's file falls back to the default, so it can hold just a few settings.
+// The file is re-read whenever it changes, so edits (by hand or from the app) apply without a restart.
+//
+// Settings:
+//   tickMs                       how often the app collects data (milliseconds)
+//   selfReport.awayMinutes       no keyboard/mouse for this long = user has left (ask when they're back)
+//   selfReport.popupTimeoutSec   pop-up closes by itself if ignored; nothing is saved
+//   categories.distraction/onTask  words matched (lowercase) against the app name and window title,
+//                                e.g. "LinkedIn - Google Chrome". Distraction is checked first, so a
+//                                YouTube tab in Chrome counts as distraction. Matching neither = 'neutral'.
 
-module.exports = {
-  // How often the app collects data (milliseconds).
-  tickMs: 1000,
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const presets = require('./presets.json');
 
-  // Self-report pop-up ("How focused were you? 1-5").
-  selfReport: {
-    awayMinutes: 5,       // no keyboard/mouse for this long = user has left (ask when they're back)
-    popupTimeoutSec: 60,  // pop-up closes by itself if ignored; nothing is saved
-  },
+const configDir = path.join(os.homedir(), '.config', 'focus-forecast');
+const configPath = path.join(configDir, 'config.json');
 
-  // Which apps/sites count as work or distraction. Matched (lowercase) against the app name and
-  // the window title, e.g. "LinkedIn - Google Chrome". Distraction is checked first, so a YouTube tab
-  // in Chrome counts as distraction. Anything that matches neither list is 'neutral'.
-  categories: {
-    distraction: [
-      'youtube', 'linkedin', 'facebook', 'instagram', 'twitter', 'reddit', 'tiktok',
-      'netflix', 'twitch', 'whatsapp', 'discord', 'spotify', 'steam',
-    ],
-    onTask: [
-      'visual studio', 'code', 'word', 'excel', 'powerpoint', 'notion', 'overleaf',
-      'terminal', 'powershell', 'acrobat', 'pdf', 'google docs', 'stack overflow', 'github',
-    ],
-  },
-};
+let cached = null;     // the merged config from the last read
+let cachedMtime = null; // when the user's file was last changed, to spot edits
+
+// Copy `overrides` on top of `defaults`. Objects are merged key by key; anything else
+// (numbers, strings, lists) is replaced, so a user's distraction list replaces the default list.
+function merge(defaults, overrides) {
+  const isObject = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
+  if (!isObject(defaults) || !isObject(overrides)) return overrides === undefined ? defaults : overrides;
+  const result = { ...defaults };
+  for (const [key, value] of Object.entries(overrides)) result[key] = merge(defaults[key], value);
+  return result;
+}
+
+// The user's file as written (only their own settings), or null if it can't be read.
+function readUserFile() {
+  try {
+    return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  } catch (err) {
+    if (err.code !== 'ENOENT') console.error(`Can't read ${configPath}, keeping previous settings:`, err.message);
+    return null;
+  }
+}
+
+function writeUserFile(settings) {
+  fs.mkdirSync(configDir, { recursive: true });
+  fs.writeFileSync(configPath, JSON.stringify(settings, null, 2));
+}
+
+// Returns the current settings. Cheap to call often: it only re-reads the file when it has changed.
+function getConfig() {
+  if (!fs.existsSync(configPath)) writeUserFile(presets);
+
+  const mtime = fs.statSync(configPath).mtimeMs;
+  if (cached && mtime === cachedMtime) return cached;
+
+  const user = readUserFile();
+  // A broken file (e.g. half-typed JSON) keeps the last good settings instead of resetting them.
+  if (user !== null || !cached) cached = merge(presets, user ?? {});
+  cachedMtime = mtime;
+  return cached;
+}
+
+// Change some settings and save them to the user's file, e.g. updateConfig({ selfReport: { awayMinutes: 10 } })
+function updateConfig(changes) {
+  writeUserFile(merge(readUserFile() ?? {}, changes));
+  cachedMtime = null; // force a re-read
+  return getConfig();
+}
+
+module.exports = { getConfig, updateConfig, configPath };
