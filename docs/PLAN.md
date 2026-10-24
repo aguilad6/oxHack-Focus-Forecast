@@ -20,7 +20,8 @@ presage.js ───────┘       │
 **Collecting data** (`src/main/`)
 - `windowTracker.js`: which app is open, whether it's work or a distraction, and whether you just switched. (Daniel)
 - `inputRate.js`: how many keys and clicks per second. Counts only, never which keys. (Daniel)
-- `presage.js`: pulse, HRV, breathing and blinking from the webcam. (Teammate)
+- `presageFace.js`: blinks, talking, eye gaze and expression from the webcam (Presage). Only runs when
+  `.env` has `USE_PRESAGE=1`, because it uses trial minutes. Pulse/HRV/breathing to add if a camera can get them. (Teammate)
 
 **Running and saving** (`src/main/`)
 - `main.js`: starts the app and runs the every-second loop. (Shared)

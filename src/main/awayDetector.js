@@ -1,21 +1,31 @@
 // Away detector: notices when the user has left the laptop and when they come back.
 //
-// Away = no keyboard/mouse activity for config.selfReport.awayMinutes (a locked screen also
-// gives no activity). Short gaps, like grabbing something under the desk, are ignored.
-// TODO (with presage.js): also treat "face visible" (status 0) as present, so reading
-// without touching the mouse doesn't count as away.
+// Present = keyboard/mouse activity, or (with Presage) a face looking at the camera.
+// Away = neither for config.selfReport.awayMinutes (a locked screen also gives no activity).
+// Short gaps, like grabbing something under the desk, are ignored.
 
 const config = require('../config');
 
 let lastActive = Date.now();
 let away = false;
 
+// Does this reading show the user is at the laptop?
+function isActive(reading) {
+  if (reading.source === 'input') {
+    return reading.keys > 0 || reading.clicks > 0 || reading.scrolls > 0 || reading.mouseMoved;
+  }
+  if (reading.source === 'face') {
+    return reading.status === 0 && reading.gazeH !== null; // camera check OK and eyes seen
+  }
+  return null; // other readings say nothing about presence
+}
+
 // Call with every reading. Returns the number of seconds the user was away at the moment
 // they come back, otherwise null.
 function updateAway(reading) {
-  if (reading.source !== 'input') return null;
+  const active = isActive(reading);
+  if (active === null) return null;
 
-  const active = reading.keys > 0 || reading.clicks > 0 || reading.scrolls > 0 || reading.mouseMoved;
   if (!active) {
     if (reading.t - lastActive >= config.selfReport.awayMinutes * 60 * 1000) away = true;
     return null;
