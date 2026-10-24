@@ -8,6 +8,8 @@ const config = require('../config');
 const { readActiveWindow } = require('./windowTracker');
 const { startInputRate, stopInputRate, readInputRate } = require('./inputRate');
 const { startRecording, record, stopRecording } = require('./recorder');
+const { updateAway } = require('./awayDetector');
+const { askSelfReport } = require('./selfReport');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -27,7 +29,28 @@ function createWindow() {
   function handleReading(reading) {
     record(reading);
     win.webContents.send('reading', reading);
+
+    // Back after being away: save how long, and ask how focused they were before leaving.
+    const awaySeconds = updateAway(reading);
+    if (awaySeconds !== null) {
+      handleReading({ t: Date.now(), source: 'away', seconds: awaySeconds });
+      askSelfReport('Welcome back! How focused were you before you left?', (rating) => {
+        if (rating) handleReading({ t: Date.now(), source: 'selfReport', trigger: 'returnFromAway', rating });
+      });
+    }
   }
+
+  // Closing the window: ask one end-of-session question first, then really close.
+  let askedEndQuestion = false;
+  win.on('close', (event) => {
+    if (askedEndQuestion) return;
+    askedEndQuestion = true;
+    event.preventDefault();
+    askSelfReport('Session over. Overall, how focused were you this session?', (rating) => {
+      if (rating) handleReading({ t: Date.now(), source: 'selfReport', trigger: 'endOfSession', rating });
+      win.destroy();
+    });
+  });
 
   // The every-second loop: collect a reading from each sensor.
   // (presage.js will be added here the same way.)

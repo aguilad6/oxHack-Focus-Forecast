@@ -10,4 +10,6 @@ contextBridge.exposeInMainWorld('focusApi', {
   },
   // Lets the page react to each reading main.js sends, e.g. { source: 'window', app: 'Code', ... }
   onReading: (callback) => ipcRenderer.on('reading', (_event, reading) => callback(reading)),
+  // Used by the self-report pop-up to send the clicked 1-5 rating to main.js.
+  answerSelfReport: (rating) => ipcRenderer.send('self-report-answer', rating),
 });
