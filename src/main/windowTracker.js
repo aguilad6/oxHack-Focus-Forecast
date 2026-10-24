@@ -28,8 +28,10 @@ async function readActiveWindow() {
   // No focused window (e.g. desktop shown, or the screen is locked).
   if (!win) return { t, source: 'window', app: null, category: 'unknown', switched: false };
 
-  const app = win.owner.name;
-  const category = categorise(app, win.title || '');
+  // Our own windows (dashboard, pop-up) belong to this process: category 'self'.
+  const self = win.owner.processId === process.pid;
+  const app = self ? 'Focus Forecast' : win.owner.name;
+  const category = self ? 'self' : categorise(app, win.title || '');
 
   // A switch = different app, or same browser but moved between work and distraction tabs.
   const key = `${app}|${category}`;
