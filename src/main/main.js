@@ -4,6 +4,8 @@
 
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const config = require('../config');
+const { readActiveWindow } = require('./windowTracker');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -18,6 +20,19 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+
+  // The every-second loop: collect a reading from each sensor and send it to the window.
+  // (inputRate.js and presage.js will be added here the same way.)
+  const timer = setInterval(async () => {
+    try {
+      const reading = await readActiveWindow();
+      win.webContents.send('reading', reading);
+    } catch (err) {
+      console.error('Window tracker failed:', err.message);
+    }
+  }, config.tickMs);
+
+  win.on('closed', () => clearInterval(timer));
 }
 
 // Electron is ready once its internals have started.

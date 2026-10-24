@@ -1,12 +1,13 @@
 // Preload script: runs before the web page loads and decides exactly what the
 // page is allowed to see. Everything exposed here appears as `window.focusApi`.
-// Later we'll add live Presage readings, focus scores, etc.
 
-const { contextBridge } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('focusApi', {
   versions: {
     node: process.versions.node,
     electron: process.versions.electron,
   },
+  // Lets the page react to each reading main.js sends, e.g. { source: 'window', app: 'Code', ... }
+  onReading: (callback) => ipcRenderer.on('reading', (_event, reading) => callback(reading)),
 });
