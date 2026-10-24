@@ -41,8 +41,10 @@ function fakeScore(reading) {
   const category = fakeLastWindow ? fakeLastWindow.category : 'unknown';
   if (category === 'unknown') return { t, focus: null, state: 'unknown' };
 
+  // Time on this dashboard ('self') counts as time away from work, like a distraction.
+  const offTask = category === 'distraction' || category === 'self';
   let target = category === 'on-task' ? FAKE.onTask
-    : category === 'distraction' ? FAKE.distraction
+    : offTask ? FAKE.distraction
       : FAKE.neutral;
   if (!engaged) target = Math.min(target, FAKE.idleScore);
 
@@ -50,15 +52,14 @@ function fakeScore(reading) {
   fakeSmoothed = fakeSmoothed === null ? target : fakeSmoothed + FAKE.smoothing * (target - fakeSmoothed);
 
   // The four states from the brief: body engaged/disengaged x on-task/distraction app.
-  // Plus: this dashboard = 'checkingIn' straight away (never counts as focus);
-  // other neutral apps keep the previous state for a short grace period, then 'neutral'.
+  // This dashboard counts as a distraction (time away from work).
+  // Other neutral apps keep the previous state for a short grace period, then 'neutral'.
   fakeNeutralSince = category === 'neutral' ? (fakeNeutralSince ?? t) : null;
   if (category === 'on-task') fakeState = engaged ? 'flow' : 'zonedOut';
-  else if (category === 'distraction') fakeState = engaged ? 'hooked' : 'break';
-  else if (category === 'self') fakeState = 'checkingIn';
-  // (Only real states are kept: coming from the dashboard, a neutral app is 'neutral' straight away.)
+  else if (offTask) fakeState = engaged ? 'hooked' : 'break';
+  // (Only real states are kept, so a neutral app after 'unknown' is 'neutral' straight away.)
   else if (!['flow', 'hooked', 'zonedOut', 'break'].includes(fakeState)
     || t - fakeNeutralSince >= FAKE.neutralGraceSec * 1000) fakeState = 'neutral';
 
-  return { t, focus: Math.round(fakeSmoothed), state: fakeState };
+  return { t, focus: Math.round(fakeSmoothed), state: fakeState, onDashboard: category === 'self' };
 }

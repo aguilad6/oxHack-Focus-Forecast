@@ -112,7 +112,7 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1100,
     height: 750,
-    backgroundColor: '#0e131f', // matches the dark UI, so there's no white flash on start
+    backgroundColor: '#f6f3ec', // matches the paper UI, so there's no white flash on start
     webPreferences: {
       // preload.js is the only bridge between this process and the web page.
       preload: path.join(__dirname, '..', 'preload.js'),
