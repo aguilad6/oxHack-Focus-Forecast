@@ -17,4 +17,10 @@ contextBridge.exposeInMainWorld('focusApi', {
   startSession: () => ipcRenderer.send('start-session'),
   onSessionStarted: (callback) => ipcRenderer.on('session-started', (_event, info) => callback(info)),
   onSessionEnded: (callback) => ipcRenderer.on('session-ended', (_event, info) => callback(info)),
+  // Settings panel: each returns the full, updated settings.
+  settings: {
+    get: () => ipcRenderer.invoke('settings-get'),
+    update: (changes) => ipcRenderer.invoke('settings-update', changes),
+    reset: () => ipcRenderer.invoke('settings-reset'),
+  },
 });

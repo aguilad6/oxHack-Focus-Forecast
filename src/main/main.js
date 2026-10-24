@@ -10,6 +10,7 @@ const { startRecording, record, stopRecording } = require('./recorder');
 const { updateAway, resetAway } = require('./awayDetector');
 const { askSelfReport } = require('./selfReport');
 const { startPresageFace, stopPresageFace, readPresageFace } = require('./presageFace');
+require('./settings'); // lets the settings panel read and change the user's settings file
 
 // Load .env (PRESAGE_API_KEY, USE_PRESAGE) if this laptop has one.
 try {
