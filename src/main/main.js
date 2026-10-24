@@ -10,6 +10,17 @@ const { startInputRate, stopInputRate, readInputRate } = require('./inputRate');
 const { startRecording, record, stopRecording } = require('./recorder');
 const { updateAway } = require('./awayDetector');
 const { askSelfReport } = require('./selfReport');
+const { startPresageFace, stopPresageFace, readPresageFace } = require('./presageFace');
+
+// Load .env (PRESAGE_API_KEY, USE_PRESAGE) if this laptop has one.
+try {
+  process.loadEnvFile(path.join(__dirname, '..', '..', '.env'));
+} catch {
+  // no .env: run without Presage
+}
+
+// Presage uses trial minutes, so it only runs on laptops that set USE_PRESAGE=1 in .env.
+let presageRunning = false;
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -53,7 +64,6 @@ function createWindow() {
   });
 
   // The every-second loop: collect a reading from each sensor.
-  // (presage.js will be added here the same way.)
   const timer = setInterval(async () => {
     try {
       handleReading(await readActiveWindow());
@@ -61,6 +71,7 @@ function createWindow() {
       console.error('Window tracker failed:', err.message);
     }
     handleReading(readInputRate());
+    if (presageRunning) handleReading(readPresageFace());
   }, config.tickMs);
 
   win.on('closed', () => clearInterval(timer));
@@ -70,14 +81,36 @@ function createWindow() {
 app.whenReady().then(() => {
   console.log('Recording to', startRecording());
   startInputRate();
+
+  if (process.env.USE_PRESAGE === '1') {
+    try {
+      startPresageFace();
+      presageRunning = true;
+      console.log('Presage started');
+    } catch (err) {
+      // e.g. no API key, or the Windows TPM key error: carry on without the camera.
+      console.error('Presage failed to start, running without it:', err.message);
+    }
+  }
+
   createWindow();
 });
 
-// Before quitting: stop the keyboard/mouse listener (so it doesn't keep the app alive)
-// and close the session file.
-app.on('will-quit', () => {
+// Before quitting: stop the keyboard/mouse listener (so it doesn't keep the app alive),
+// close the session file, and stop the webcam.
+app.on('will-quit', (event) => {
   stopInputRate();
   stopRecording();
+
+  if (presageRunning) {
+    // Stopping Presage takes a moment: wait for it (max 3 s, so a stuck SDK can't block quitting).
+    presageRunning = false;
+    event.preventDefault();
+    const giveUp = new Promise((resolve) => setTimeout(resolve, 3000));
+    Promise.race([stopPresageFace(), giveUp])
+      .catch((err) => console.error('Error stopping Presage:', err.message))
+      .finally(() => app.exit(0));
+  }
 });
 
 // On Windows/Linux, closing the last window quits the app.
