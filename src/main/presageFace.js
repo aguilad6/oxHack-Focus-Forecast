@@ -13,7 +13,7 @@ let sdk = null;
 let lastBlink = false; // was the eye closed in the previous frame? (so one blink isn't counted twice)
 let status = null;     // Presage's camera check: 0 = OK, 2 = several faces, 5 = too dark, ...
 let expression = null; // latest most-likely expression, e.g. { name: 'neutral', confidence: 82 }
-let counts = { blinks: 0, talking: false, gazeH: 0, gazeV: 0, gazeFrames: 0 };
+let counts = { blinks: 0, talking: false, gazeH: 0, gazeV: 0, headYaw: 0, headPitch: 0, gazeFrames: 0 };
 
 // Eye gaze from MediaPipe face landmarks (478 points: 0-467 face, 468-477 irises).
 // For each eye: [corner, corner, upper lid, lower lid, iris centre].
@@ -41,6 +41,21 @@ function eyeGaze(points) {
   return { h, v };
 }
 
+// Head direction from face landmarks: where the nose tip sits between the two cheeks (yaw, left-right)
+// and between forehead and chin (pitch, up-down). About 0.5 = facing the camera.
+// Looking at another monitor mostly turns the head, so this is what screen calibration relies on.
+const HEAD = { nose: 1, cheeks: [234, 454], forehead: 10, chin: 152 };
+
+function headPose(points) {
+  if (!(points?.length >= 478)) return null;
+  const [c1, c2] = HEAD.cheeks;
+  const [left, right] = points[c1].x < points[c2].x ? [c1, c2] : [c2, c1];
+  return {
+    yaw: along(points[left], points[right], points[HEAD.nose]),
+    pitch: along(points[HEAD.forehead], points[HEAD.chin], points[HEAD.nose]),
+  };
+}
+
 // The most likely expression in a reading, e.g. { name: 'neutral', confidence: 82 }.
 function topExpression(reading) {
   const best = reading?.scores?.reduce((a, b) => (b.confidence > a.confidence ? b : a), { confidence: -1 });
@@ -60,12 +75,15 @@ function addMetrics(buf) {
   }
   if (m.face.talking?.some((t) => t.detected)) counts.talking = true;
 
-  // Average the gaze over every frame until the next reading.
+  // Average the gaze and head direction over every frame until the next reading.
   for (const frame of m.face.landmarks ?? []) {
     const gaze = eyeGaze(frame.value);
     if (!gaze) continue;
+    const head = headPose(frame.value);
     counts.gazeH += gaze.h;
     counts.gazeV += gaze.v;
+    counts.headYaw += head.yaw;
+    counts.headPitch += head.pitch;
     counts.gazeFrames += 1;
   }
 
@@ -108,11 +126,13 @@ function readPresageFace() {
     talking: counts.talking,
     gazeH: n ? counts.gazeH / n : null,
     gazeV: n ? counts.gazeV / n : null,
+    headYaw: n ? counts.headYaw / n : null,
+    headPitch: n ? counts.headPitch / n : null,
     expression: expression?.name ?? null,
     expressionConfidence: expression?.confidence ?? null,
   };
-  counts = { blinks: 0, talking: false, gazeH: 0, gazeV: 0, gazeFrames: 0 };
+  counts = { blinks: 0, talking: false, gazeH: 0, gazeV: 0, headYaw: 0, headPitch: 0, gazeFrames: 0 };
   return reading;
 }
 
-module.exports = { startPresageFace, stopPresageFace, readPresageFace, eyeGaze };
+module.exports = { startPresageFace, stopPresageFace, readPresageFace, eyeGaze, headPose };

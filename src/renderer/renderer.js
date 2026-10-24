@@ -204,12 +204,14 @@ const FIELD_LABELS = {
   keys: 'Keys', clicks: 'Clicks', scrolls: 'Scrolls', mouseMoved: 'Mouse moved',
   status: 'Camera check', blinks: 'Blinks', talking: 'Talking', gazeH: 'Gaze left–right', gazeV: 'Gaze up–down',
   expression: 'Expression', expressionConfidence: 'Expression confidence (%)',
+  headYaw: 'Head left–right', headPitch: 'Head up–down', lookingAt: 'Looking at',
   pulse: 'Heart rate (bpm)', breathing: 'Breathing (per min)', hrv: 'HRV (ms)',
   seconds: 'Seconds away', rating: 'Rating (1–5)', trigger: 'Asked when',
 };
 const CAMERA_CHECK = { 0: 'OK', 2: 'several faces', 5: 'too dark', 7: 'chest not visible' };
 
 function formatValue(key, value) {
+  if (key === 'lookingAt') return value === null ? 'not calibrated' : value === 'away' ? 'away' : `screen ${value + 1}`;
   if (value === null || value === undefined) return '–';
   if (key === 'status') return CAMERA_CHECK[value] ? `${value} (${CAMERA_CHECK[value]})` : String(value);
   if (typeof value === 'boolean') return value ? 'yes' : 'no';

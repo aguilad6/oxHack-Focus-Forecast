@@ -17,6 +17,13 @@ contextBridge.exposeInMainWorld('focusApi', {
   startSession: () => ipcRenderer.send('start-session'),
   onSessionStarted: (callback) => ipcRenderer.on('session-started', (_event, info) => callback(info)),
   onSessionEnded: (callback) => ipcRenderer.on('session-ended', (_event, info) => callback(info)),
+  // Screen calibration: status for the banner/Settings, start (returns { ok, message }), cancel (Esc).
+  calibration: {
+    status: () => ipcRenderer.invoke('calibration-status'),
+    start: () => ipcRenderer.invoke('calibration-start'),
+    cancel: () => ipcRenderer.send('calibration-cancel'),
+    onStatus: (callback) => ipcRenderer.on('calibration-status', (_event, status) => callback(status)),
+  },
   // Settings panel: each returns the full, updated settings.
   settings: {
     get: () => ipcRenderer.invoke('settings-get'),
