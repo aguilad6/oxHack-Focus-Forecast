@@ -9,7 +9,8 @@
   },
   "allowScripts": {
     "koffi@2.16.3": true,
-    "protobufjs@7.6.6": true
+    "protobufjs@7.6.6": true,
+    "get-windows@9.3.0": true
   },
   "repository": {
     "type": "git",
@@ -27,6 +28,7 @@
     "electron": "^45.0.0"
   },
   "dependencies": {
-    "@smartspectra/node-sdk": "^3.4.0"
+    "@smartspectra/node-sdk": "^3.4.0",
+    "get-windows": "^9.3.0"
   }
 }
