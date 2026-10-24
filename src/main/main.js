@@ -137,9 +137,6 @@ function createWindow() {
     } catch (err) {
       console.error('Window tracker failed:', err.message);
     }
-    handleReading(readInputRate());
-    if (presageRunning) handleReading(readPresageFace());
-  }, TICK_MS);
     const inputReading = readInputRate();
     const faceReading = presageRunning ? readPresageFace() : null;
 
@@ -147,7 +144,7 @@ function createWindow() {
     for (const reading of [windowReading, inputReading, faceReading]) {
       if (reading) handleReading(reading);
     }
-  }, config.tickMs);
+  }, TICK_MS);
 
   win.on('closed', () => clearInterval(timer));
 }
