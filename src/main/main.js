@@ -1,14 +1,14 @@
 // Electron main process: the "backend" of the app.
-// It runs in Node.js, opens the window, and will later talk to Presage,
-// the window tracker and the input monitor (things a web page is not allowed to do).
+// It runs in Node.js, opens the window, runs sessions, and collects data from
+// Presage, the window tracker and the input monitor (things a web page is not allowed to do).
 
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const config = require('../config');
 const { readActiveWindow } = require('./windowTracker');
 const { startInputRate, stopInputRate, readInputRate } = require('./inputRate');
 const { startRecording, record, stopRecording } = require('./recorder');
-const { updateAway } = require('./awayDetector');
+const { updateAway, resetAway } = require('./awayDetector');
 const { askSelfReport } = require('./selfReport');
 const { startPresageFace, stopPresageFace, readPresageFace } = require('./presageFace');
 
@@ -19,13 +19,93 @@ try {
   // no .env: run without Presage
 }
 
-// Presage uses trial minutes, so it only runs on laptops that set USE_PRESAGE=1 in .env.
+let win = null;
+let sessionActive = false;  // recording right now?
+let endingSession = false;  // end-of-session question showing?
 let presageRunning = false;
 
+// ---- Presage (webcam) ----
+// Uses trial minutes, so it only runs on laptops with USE_PRESAGE=1 in .env, and only during a session.
+
+function startPresage() {
+  if (process.env.USE_PRESAGE !== '1') return;
+  try {
+    startPresageFace();
+    presageRunning = true;
+    console.log('Presage started');
+  } catch (err) {
+    // e.g. no API key, or the Windows TPM key error: carry on without the camera.
+    console.error('Presage failed to start, running without it:', err.message);
+  }
+}
+
+// Stopping takes a moment: wait for it, but max 3 s so a stuck SDK can't block anything.
+async function stopPresage() {
+  if (!presageRunning) return;
+  presageRunning = false;
+  const giveUp = new Promise((resolve) => setTimeout(resolve, 3000));
+  try {
+    await Promise.race([stopPresageFace(), giveUp]);
+  } catch (err) {
+    console.error('Error stopping Presage:', err.message);
+  }
+}
+
+// ---- Readings ----
+
+// Every reading is saved to the session file and sent to the window.
+function handleReading(reading) {
+  record(reading);
+  win.webContents.send('reading', reading);
+
+  // Back after being away: save how long, and ask how focused they were before leaving.
+  const awaySeconds = updateAway(reading);
+  if (awaySeconds !== null) {
+    handleReading({ t: Date.now(), source: 'away', seconds: awaySeconds });
+    askSelfReport('Welcome back! How focused were you before you left?', (rating) => {
+      if (rating) handleReading({ t: Date.now(), source: 'selfReport', trigger: 'returnFromAway', rating });
+    });
+  }
+}
+
+// ---- Sessions ----
+
+function startSession() {
+  console.log('Recording to', startRecording());
+  resetAway();
+  startPresage();
+  sessionActive = true;
+  win.webContents.send('session-started', { t: Date.now() });
+}
+
+// Ask the end-of-session question, then stop recording. afterwards() runs once it's all done.
+function endSession(afterwards) {
+  if (!sessionActive || endingSession) return;
+  endingSession = true;
+  askSelfReport('Session over. Overall, how focused were you this session?', async (rating) => {
+    if (rating) handleReading({ t: Date.now(), source: 'selfReport', trigger: 'endOfSession', rating });
+    sessionActive = false;
+    endingSession = false;
+    stopRecording();
+    await stopPresage();
+    if (!win.isDestroyed()) win.webContents.send('session-ended', { rating });
+    if (afterwards) afterwards();
+  });
+}
+
+// Buttons in the window.
+ipcMain.on('end-session', () => endSession());
+ipcMain.on('start-session', () => {
+  if (!sessionActive) startSession();
+});
+
+// ---- Window ----
+
 function createWindow() {
-  const win = new BrowserWindow({
+  win = new BrowserWindow({
     width: 1100,
     height: 750,
+    backgroundColor: '#0e131f', // matches the dark UI, so there's no white flash on start
     webPreferences: {
       // preload.js is the only bridge between this process and the web page.
       preload: path.join(__dirname, '..', 'preload.js'),
@@ -35,43 +115,32 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  win.webContents.once('did-finish-load', startSession); // first session starts when the app opens
 
-  // Every reading is saved to the session file and sent to the window.
-  function handleReading(reading) {
-    record(reading);
-    win.webContents.send('reading', reading);
-
-    // Back after being away: save how long, and ask how focused they were before leaving.
-    const awaySeconds = updateAway(reading);
-    if (awaySeconds !== null) {
-      handleReading({ t: Date.now(), source: 'away', seconds: awaySeconds });
-      askSelfReport('Welcome back! How focused were you before you left?', (rating) => {
-        if (rating) handleReading({ t: Date.now(), source: 'selfReport', trigger: 'returnFromAway', rating });
-      });
-    }
-  }
-
-  // Closing the window: ask one end-of-session question first, then really close.
-  let askedEndQuestion = false;
+  // Closing the window during a session: ask the end-of-session question first, then close.
+  // Between sessions: just close.
   win.on('close', (event) => {
-    if (askedEndQuestion) return;
-    askedEndQuestion = true;
+    if (!sessionActive && !endingSession) return;
     event.preventDefault();
-    askSelfReport('Session over. Overall, how focused were you this session?', (rating) => {
-      if (rating) handleReading({ t: Date.now(), source: 'selfReport', trigger: 'endOfSession', rating });
-      win.destroy();
-    });
+    endSession(() => win.destroy());
   });
 
-  // The every-second loop: collect a reading from each sensor.
+  // The every-second loop. Sensors are always read (so counts don't pile up between sessions),
+  // but readings are only used during a session.
   const timer = setInterval(async () => {
+    let windowReading = null;
     try {
-      handleReading(await readActiveWindow());
+      windowReading = await readActiveWindow();
     } catch (err) {
       console.error('Window tracker failed:', err.message);
     }
-    handleReading(readInputRate());
-    if (presageRunning) handleReading(readPresageFace());
+    const inputReading = readInputRate();
+    const faceReading = presageRunning ? readPresageFace() : null;
+
+    if (!sessionActive || win.isDestroyed()) return;
+    for (const reading of [windowReading, inputReading, faceReading]) {
+      if (reading) handleReading(reading);
+    }
   }, config.tickMs);
 
   win.on('closed', () => clearInterval(timer));
@@ -79,20 +148,7 @@ function createWindow() {
 
 // Electron is ready once its internals have started.
 app.whenReady().then(() => {
-  console.log('Recording to', startRecording());
   startInputRate();
-
-  if (process.env.USE_PRESAGE === '1') {
-    try {
-      startPresageFace();
-      presageRunning = true;
-      console.log('Presage started');
-    } catch (err) {
-      // e.g. no API key, or the Windows TPM key error: carry on without the camera.
-      console.error('Presage failed to start, running without it:', err.message);
-    }
-  }
-
   createWindow();
 });
 
@@ -101,15 +157,9 @@ app.whenReady().then(() => {
 app.on('will-quit', (event) => {
   stopInputRate();
   stopRecording();
-
   if (presageRunning) {
-    // Stopping Presage takes a moment: wait for it (max 3 s, so a stuck SDK can't block quitting).
-    presageRunning = false;
     event.preventDefault();
-    const giveUp = new Promise((resolve) => setTimeout(resolve, 3000));
-    Promise.race([stopPresageFace(), giveUp])
-      .catch((err) => console.error('Error stopping Presage:', err.message))
-      .finally(() => app.exit(0));
+    stopPresage().finally(() => app.exit(0));
   }
 });
 
