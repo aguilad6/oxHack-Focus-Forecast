@@ -32,7 +32,7 @@ function askSelfReport(question, callback) {
   if (popup) finish(null); // replace any older question
 
   const width = 360;
-  const height = 150;
+  const height = 160;
   const area = screen.getPrimaryDisplay().workArea; // screen minus the taskbar
   popup = new BrowserWindow({
     width,
@@ -45,6 +45,8 @@ function askSelfReport(question, callback) {
     minimizable: false,
     maximizable: false,
     title: 'Focus Forecast',
+    frame: false,             // no white Windows title bar; the page draws its own (with a × button)
+    transparent: true,        // lets the page's rounded corners show
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
@@ -52,7 +54,6 @@ function askSelfReport(question, callback) {
       nodeIntegration: false,
     },
   });
-  popup.setMenuBarVisibility(false);
   popup.loadFile(path.join(__dirname, '..', 'renderer', 'selfReport.html'), { query: { q: question } });
   popup.once('ready-to-show', () => popup.showInactive()); // show without taking focus
   popup.on('closed', () => finish(null)); // user clicked the X

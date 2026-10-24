@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@smartspectra/node-sdk": "^3.4.0",
+    "chart.js": "^4.6.1",
     "get-windows": "^9.3.0",
     "uiohook-napi": "^1.5.5"
   }

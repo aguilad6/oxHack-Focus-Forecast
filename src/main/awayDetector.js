@@ -38,4 +38,10 @@ function updateAway(reading) {
   return cameBack ? awaySeconds : null;
 }
 
-module.exports = { updateAway };
+// Start fresh (call when a new session starts), so time between sessions doesn't count as away.
+function resetAway() {
+  lastActive = Date.now();
+  away = false;
+}
+
+module.exports = { updateAway, resetAway };

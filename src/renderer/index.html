@@ -6,18 +6,145 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'">
   <title>Focus Forecast</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 40px; color: #222; }
-    .muted { color: #888; font-size: 13px; }
+    :root {
+      --bg: #0e131f;
+      --card: #161c2a;
+      --border: #232b3c;
+      --text: #e8ebf2;
+      --muted: #8b93a7;
+      --accent: #6c8cff;
+      --state: #59627a; /* set from renderer.js to the current state's colour */
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0; padding: 24px 32px 32px;
+      font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 500px at 15% -10%, #1b2440 0%, var(--bg) 60%) fixed, var(--bg);
+    }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; margin-bottom: 16px; }
+    .label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .muted { color: var(--muted); font-size: 12px; }
+
+    /* Header */
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
+    .live { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+            color: #3ecf8e; background: rgba(62, 207, 142, 0.1); padding: 3px 8px; border-radius: 999px; }
+    .live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #3ecf8e; animation: pulse 2s infinite; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(62, 207, 142, 0.6); } 70% { box-shadow: 0 0 0 7px rgba(62, 207, 142, 0); } 100% { box-shadow: 0 0 0 0 rgba(62, 207, 142, 0); } }
+    .timer { text-align: right; }
+    .timer strong { display: block; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .header-right { display: flex; align-items: center; gap: 20px; }
+    .end { font: inherit; font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer;
+           background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; }
+    .end:hover { border-color: #ff6b8a; color: #ff6b8a; }
+
+    /* Session summary (shown after "End session") */
+    .summary h2 { margin: 6px 0 8px; font-size: 30px; font-weight: 700; }
+    .summary h2 span { color: #3ecf8e; }
+    .summary p { margin: 0 0 18px; color: var(--muted); }
+    .start { font: inherit; font-size: 14px; font-weight: 600; color: #0e131f; cursor: pointer;
+             background: var(--accent); border: none; border-radius: 10px; padding: 10px 18px; }
+    .start:hover { filter: brightness(1.1); }
+
+    /* Hero: focus ring + state */
+    .hero { display: flex; align-items: center; gap: 28px; }
+    .ring {
+      --p: 0; /* focus 0-100, set from renderer.js */
+      flex: none; width: 132px; height: 132px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: conic-gradient(var(--state) calc(var(--p) * 1%), var(--border) 0);
+      box-shadow: 0 0 40px -8px var(--state);
+      transition: box-shadow 0.6s;
+    }
+    .ring-inner { width: 108px; height: 108px; border-radius: 50%; background: var(--card);
+                  display: grid; place-items: center; text-align: center; }
+    .ring-inner span { font-size: 16px; font-weight: 700; color: var(--state); }
+    .hero h2 { margin: 4px 0 6px; font-size: 26px; font-weight: 700; }
+    .hero p { margin: 0; color: var(--muted); max-width: 520px; line-height: 1.45; }
+
+    /* Tiles */
+    .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+    .tile { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px; }
+    .tile strong { display: block; margin-top: 6px; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .tile .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+
+    /* Chart */
+    .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .card-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
+    .chart-box { position: relative; height: 260px; }
+    select { font: inherit; font-size: 13px; color: var(--text); background: #0f1522; border: 1px solid var(--border);
+             border-radius: 8px; padding: 6px 10px; }
+    select option:disabled { color: #5b6378; }
+
+    /* Raw readings: one dropdown per sensor */
+    #raw details { border-top: 1px solid var(--border); }
+    #raw details:first-child { border-top: none; }
+    #raw summary { display: flex; justify-content: space-between; padding: 10px 0; cursor: pointer; font-weight: 600; }
+    #raw summary .time { font-weight: 400; color: var(--muted); font-size: 12px; }
+    #raw table { border-collapse: collapse; margin: 0 0 12px; font-size: 13px; }
+    #raw th { text-align: left; font-weight: 400; color: var(--muted); padding: 3px 24px 3px 0; }
+    #raw td { font-variant-numeric: tabular-nums; }
+
+    @media (max-width: 760px) { .tiles { grid-template-columns: repeat(2, 1fr); } .hero { flex-direction: column; align-items: flex-start; } }
   </style>
 </head>
 <body>
-  <h1>Focus Forecast</h1>
-  <p class="muted" id="versions"></p>
+  <header>
+    <div class="brand">Focus Forecast <span class="live" id="live">LIVE</span></div>
+    <div class="header-right">
+      <div class="timer"><span class="label">Session</span><strong id="session-time">0:00:00</strong></div>
+      <button class="end" id="end-session">End session</button>
+    </div>
+  </header>
 
-  <!-- Debug panel: the latest raw reading from each sensor. -->
-  <h2>Live readings</h2>
-  <pre id="readings">Waiting for data...</pre>
+  <!-- Session summary: replaces the live state after "End session" -->
+  <div class="card summary" id="summary" hidden>
+    <div class="label">Session complete</div>
+    <h2><span id="sum-deep">0%</span> deep focus</h2>
+    <p id="sum-detail"></p>
+    <button class="start" id="start-session">Start new session</button>
+  </div>
 
+  <!-- Current state: ring fill = focus level, colour = state -->
+  <div class="card hero" id="hero">
+    <div class="ring" id="ring"><div class="ring-inner"><span id="ring-label">…</span></div></div>
+    <div>
+      <div class="label">Right now</div>
+      <h2 id="state-label">Starting…</h2>
+      <p id="state-message">Waiting for data…</p>
+    </div>
+  </div>
+
+  <!-- Session so far -->
+  <div class="tiles">
+    <div class="tile"><span class="label">Stress</span><strong id="stress-level">–</strong><span class="muted">needs heart-rate data</span></div>
+    <div class="tile"><span class="label"><span class="dot" style="background:#3ecf8e"></span>Deep focus</span><strong id="time-flow">0 min</strong></div>
+    <div class="tile"><span class="label"><span class="dot" style="background:#f5a524"></span>Hooked</span><strong id="time-hooked">0 min</strong></div>
+    <div class="tile"><span class="label"><span class="dot" style="background:#8f9cf2"></span>Zoned out</span><strong id="time-zonedOut">0 min</strong></div>
+  </div>
+
+  <!-- One chart: the dropdown swaps what it shows (hover for values) -->
+  <div class="card">
+    <div class="card-head">
+      <h3 id="chart-title">Focus · last 30 minutes</h3>
+      <select id="signal-select"></select>
+    </div>
+    <div class="chart-box"><canvas id="chart"></canvas></div>
+    <p class="muted" id="chart-note"></p>
+  </div>
+
+  <!-- Raw readings, one dropdown per sensor (brief: raw biometrics only as a drill-down) -->
+  <div class="card">
+    <div class="card-head"><h3>Details · raw readings</h3></div>
+    <div id="raw"><p class="muted">Waiting for data…</p></div>
+    <p class="muted" id="versions"></p>
+  </div>
+
+  <script src="../../node_modules/chart.js/dist/chart.umd.min.js"></script>
+  <script src="fakeScore.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

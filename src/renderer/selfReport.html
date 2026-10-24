@@ -5,16 +5,34 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'">
   <title>Focus Forecast</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 16px; color: #222; user-select: none; }
-    p { margin: 0 0 12px; font-size: 14px; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; padding: 14px 16px 12px;
+      font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      color: #e8ebf2; background: #161c2a;
+      border: 1px solid #2b3448; border-radius: 12px;
+      user-select: none;
+      -webkit-app-region: drag; /* the window has no title bar, so drag it by its background */
+    }
+    button { -webkit-app-region: no-drag; font: inherit; cursor: pointer; }
+    .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .brand { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b93a7; }
+    .close { background: none; border: none; color: #8b93a7; font-size: 16px; line-height: 1; padding: 2px 4px; }
+    .close:hover { color: #e8ebf2; }
+    p { margin: 0 0 12px; font-size: 14px; line-height: 1.35; }
     .buttons { display: flex; gap: 8px; }
-    button { flex: 1; padding: 10px 0; font-size: 16px; border: 1px solid #ccc; border-radius: 6px;
-             background: #f6f6f6; cursor: pointer; }
-    button:hover { background: #e3ecff; border-color: #6b8fe8; }
-    .scale { display: flex; justify-content: space-between; color: #888; font-size: 11px; margin-top: 6px; }
+    .buttons button { flex: 1; padding: 9px 0; font-size: 15px; font-weight: 600; color: #e8ebf2;
+                      background: #0f1522; border: 1px solid #2b3448; border-radius: 8px; }
+    .buttons button:hover { background: #6c8cff; border-color: #6c8cff; }
+    .scale { display: flex; justify-content: space-between; color: #8b93a7; font-size: 11px; margin-top: 6px; }
   </style>
 </head>
 <body>
+  <div class="head">
+    <span class="brand">Focus Forecast</span>
+    <button class="close" id="close" title="Skip">×</button>
+  </div>
   <p id="question"></p>
   <div class="buttons">
     <button data-rating="1">1</button>
