@@ -1,0 +1,8 @@
+# Downloaded packages (recreated by `npm install`)
+node_modules/
+
+# Recorded sessions: personal biometric data, never commit
+data/
+
+# Secrets (Presage API key)
+.env

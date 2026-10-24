@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- Only allow our own local files to run: blocks injected scripts. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+  <title>Focus Forecast</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 40px; color: #222; }
+    .muted { color: #888; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Focus Forecast</h1>
+  <p>Skeleton is running.</p>
+  <p class="muted" id="versions"></p>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
