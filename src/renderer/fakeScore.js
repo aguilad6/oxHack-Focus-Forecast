@@ -56,7 +56,9 @@ function fakeScore(reading) {
   if (category === 'on-task') fakeState = engaged ? 'flow' : 'zonedOut';
   else if (category === 'distraction') fakeState = engaged ? 'hooked' : 'break';
   else if (category === 'self') fakeState = 'checkingIn';
-  else if (t - fakeNeutralSince >= FAKE.neutralGraceSec * 1000) fakeState = 'neutral';
+  // (Only real states are kept: coming from the dashboard, a neutral app is 'neutral' straight away.)
+  else if (!['flow', 'hooked', 'zonedOut', 'break'].includes(fakeState)
+    || t - fakeNeutralSince >= FAKE.neutralGraceSec * 1000) fakeState = 'neutral';
 
   return { t, focus: Math.round(fakeSmoothed), state: fakeState };
 }

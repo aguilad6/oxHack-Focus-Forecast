@@ -41,6 +41,40 @@
            background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; }
     .end:hover { border-color: #ff6b8a; color: #ff6b8a; }
 
+    /* Settings panel: slides in from the right */
+    .backdrop { position: fixed; inset: 0; background: rgba(5, 8, 15, 0.55); z-index: 10; }
+    .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(400px, 100%); z-index: 11;
+              background: var(--card); border-left: 1px solid var(--border); padding: 22px 24px; overflow-y: auto;
+              animation: slide-in 0.2s ease-out; }
+    @keyframes slide-in { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .drawer-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .drawer-head h3 { margin: 0; font-size: 18px; }
+    .icon-btn { background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; }
+    .icon-btn:hover { color: var(--text); }
+    .drawer section { padding: 16px 0; border-bottom: 1px solid var(--border); }
+    .drawer section:last-of-type { border-bottom: none; }
+    .drawer h4 { margin: 0 0 4px; font-size: 14px; }
+    .drawer .hint { margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; padding: 4px 4px 4px 10px;
+            background: #0f1522; border: 1px solid var(--border); border-radius: 999px; }
+    .chip button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0 4px; }
+    .chip button:hover { color: #ff6b8a; }
+    .chips.on-task .chip { border-color: rgba(62, 207, 142, 0.35); }
+    .chips.distraction .chip { border-color: rgba(245, 165, 36, 0.35); }
+    .chips.rows { flex-direction: column; align-items: stretch; }
+    .chips.rows .chip { justify-content: space-between; border-radius: 8px; }
+    .add { display: flex; gap: 8px; }
+    .add input, .number input { flex: 1; font: inherit; font-size: 13px; color: var(--text); background: #0f1522;
+                                border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; }
+    .add button { font: inherit; font-size: 13px; font-weight: 600; color: #0e131f; background: var(--accent);
+                  border: none; border-radius: 8px; padding: 0 14px; cursor: pointer; }
+    .number { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; font-size: 13px; }
+    .number input { flex: none; width: 80px; text-align: right; }
+    .danger { font: inherit; font-size: 13px; color: #ff6b8a; background: transparent; cursor: pointer;
+              border: 1px solid rgba(255, 107, 138, 0.4); border-radius: 8px; padding: 8px 14px; }
+    .danger:hover { background: rgba(255, 107, 138, 0.1); }
+
     /* Session summary (shown after "End session") */
     .summary h2 { margin: 6px 0 8px; font-size: 30px; font-weight: 700; }
     .summary h2 span { color: #3ecf8e; }
@@ -96,6 +130,7 @@
     <div class="brand">Focus Forecast <span class="live" id="live">LIVE</span></div>
     <div class="header-right">
       <div class="timer"><span class="label">Session</span><strong id="session-time">0:00:00</strong></div>
+      <button class="end" id="open-settings">⚙ Settings</button>
       <button class="end" id="end-session">End session</button>
     </div>
   </header>
@@ -143,8 +178,52 @@
     <p class="muted" id="versions"></p>
   </div>
 
+  <!-- Settings panel (opened with the ⚙ Settings button). Changes save straight away. -->
+  <div class="backdrop" id="settings-backdrop" hidden></div>
+  <aside class="drawer" id="settings" hidden>
+    <div class="drawer-head">
+      <h3>Settings</h3>
+      <button class="icon-btn" id="close-settings" title="Close">×</button>
+    </div>
+    <p class="hint">Changes save automatically and apply straight away.</p>
+
+    <section>
+      <h4>Work apps &amp; sites</h4>
+      <p class="hint">Words matched against the app name or window title, e.g. "figma" or "outlook".</p>
+      <div class="chips on-task" id="list-onTask"></div>
+      <form class="add" data-list="onTask"><input placeholder="Add a work app or site"><button>Add</button></form>
+    </section>
+
+    <section>
+      <h4>Distractions</h4>
+      <p class="hint">Checked first: a YouTube tab in Chrome counts as a distraction.</p>
+      <div class="chips distraction" id="list-distraction"></div>
+      <form class="add" data-list="distraction"><input placeholder="Add a distracting app or site"><button>Add</button></form>
+    </section>
+
+    <section>
+      <h4>Suggestions</h4>
+      <p class="hint">What the app can suggest when your focus is dropping.</p>
+      <div class="chips rows" id="list-suggestions"></div>
+      <form class="add" data-list="suggestions"><input placeholder="Add a suggestion"><button>Add</button></form>
+    </section>
+
+    <section>
+      <h4>Timing</h4>
+      <label class="number">Count as away after no activity for (minutes)
+        <input type="number" id="away-minutes" min="0.25" step="0.25"></label>
+      <label class="number">Close an unanswered pop-up after (seconds)
+        <input type="number" id="popup-seconds" min="10" step="5"></label>
+    </section>
+
+    <section>
+      <button class="danger" id="reset-settings">Reset to defaults</button>
+    </section>
+  </aside>
+
   <script src="../../node_modules/chart.js/dist/chart.umd.min.js"></script>
   <script src="fakeScore.js"></script>
   <script src="renderer.js"></script>
+  <script src="settings.js"></script>
 </body>
 </html>
