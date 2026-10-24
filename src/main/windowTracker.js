@@ -6,7 +6,7 @@
 //
 // Privacy: the window title is used only to pick a category, and is never returned or saved.
 
-const config = require('../config');
+const { getConfig } = require('../config');
 
 let getWindows = null; // loaded on first use (get-windows is an ES module, so we use import())
 let lastKey = null;    // app + category from the previous reading, to detect switches
@@ -14,8 +14,9 @@ let lastKey = null;    // app + category from the previous reading, to detect sw
 // Decide 'distraction', 'on-task' or 'neutral' from the app name and window title.
 function categorise(appName, title) {
   const text = `${appName} ${title}`.toLowerCase();
-  if (config.categories.distraction.some((word) => text.includes(word))) return 'distraction';
-  if (config.categories.onTask.some((word) => text.includes(word))) return 'on-task';
+  const { categories } = getConfig();
+  if (categories.distraction.some((word) => text.includes(word))) return 'distraction';
+  if (categories.onTask.some((word) => text.includes(word))) return 'on-task';
   return 'neutral';
 }
 

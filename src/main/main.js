@@ -4,7 +4,6 @@
 
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const config = require('../config');
 const { readActiveWindow } = require('./windowTracker');
 const { startInputRate, stopInputRate, readInputRate } = require('./inputRate');
 const { startRecording, record, stopRecording } = require('./recorder');
@@ -19,6 +18,10 @@ try {
   // no .env: run without Presage
 }
 
+// How often the app collects data (milliseconds).
+const TICK_MS = 1000;
+
+// Presage uses trial minutes, so it only runs on laptops that set USE_PRESAGE=1 in .env.
 let win = null;
 let sessionActive = false;  // recording right now?
 let endingSession = false;  // end-of-session question showing?
@@ -134,6 +137,9 @@ function createWindow() {
     } catch (err) {
       console.error('Window tracker failed:', err.message);
     }
+    handleReading(readInputRate());
+    if (presageRunning) handleReading(readPresageFace());
+  }, TICK_MS);
     const inputReading = readInputRate();
     const faceReading = presageRunning ? readPresageFace() : null;
 

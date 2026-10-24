@@ -4,7 +4,7 @@
 // Away = neither for config.selfReport.awayMinutes (a locked screen also gives no activity).
 // Short gaps, like grabbing something under the desk, are ignored.
 
-const config = require('../config');
+const { getConfig } = require('../config');
 
 let lastActive = Date.now();
 let away = false;
@@ -27,7 +27,7 @@ function updateAway(reading) {
   if (active === null) return null;
 
   if (!active) {
-    if (reading.t - lastActive >= config.selfReport.awayMinutes * 60 * 1000) away = true;
+    if (reading.t - lastActive >= getConfig().selfReport.awayMinutes * 60 * 1000) away = true;
     return null;
   }
 

@@ -4,7 +4,7 @@
 
 const { BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
-const config = require('../config');
+const { getConfig } = require('../config');
 
 let popup = null;   // the open pop-up (only one at a time)
 let onDone = null;  // called with the rating 1-5, or null if ignored/closed
@@ -59,7 +59,7 @@ function askSelfReport(question, callback) {
   popup.on('closed', () => finish(null)); // user clicked the X
 
   onDone = callback;
-  timeout = setTimeout(() => finish(null), config.selfReport.popupTimeoutSec * 1000);
+  timeout = setTimeout(() => finish(null), getConfig().selfReport.popupTimeoutSec * 1000);
 }
 
 module.exports = { askSelfReport };
