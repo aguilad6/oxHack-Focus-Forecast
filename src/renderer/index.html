@@ -40,6 +40,7 @@
     .end { font: inherit; font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer;
            background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; }
     .end:hover { border-color: #ff6b8a; color: #ff6b8a; }
+    .end:disabled { opacity: 0.4; cursor: default; border-color: var(--border); color: var(--text); }
 
     /* Settings panel: slides in from the right */
     .backdrop { position: fixed; inset: 0; background: rgba(5, 8, 15, 0.55); z-index: 10; }
@@ -74,6 +75,15 @@
     .danger { font: inherit; font-size: 13px; color: #ff6b8a; background: transparent; cursor: pointer;
               border: 1px solid rgba(255, 107, 138, 0.4); border-radius: 8px; padding: 8px 14px; }
     .danger:hover { background: rgba(255, 107, 138, 0.1); }
+
+    /* Calibration banner */
+    .banner { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; padding: 12px 16px;
+              background: rgba(108, 140, 255, 0.1); border: 1px solid rgba(108, 140, 255, 0.35); border-radius: 12px; }
+    .banner span { flex: 1; min-width: 200px; }
+    .banner .start { padding: 8px 14px; font-size: 13px; }
+    .link-btn { font: inherit; font-size: 13px; color: var(--muted); background: none; border: none; cursor: pointer; }
+    .link-btn:hover { color: var(--text); }
+    #screens-message { margin: 8px 0 0; font-size: 12px; color: #ff6b8a; }
 
     /* Session summary (shown after "End session") */
     .summary h2 { margin: 6px 0 8px; font-size: 30px; font-weight: 700; }
@@ -134,6 +144,13 @@
       <button class="end" id="end-session">End session</button>
     </div>
   </header>
+
+  <!-- Calibration banner: first run, or when the screen setup has changed -->
+  <div class="banner" id="calib-banner" hidden>
+    <span id="calib-banner-text"></span>
+    <button class="start" id="calib-now">Calibrate now</button>
+    <button class="link-btn" id="calib-later">Later</button>
+  </div>
 
   <!-- Session summary: replaces the live state after "End session" -->
   <div class="card summary" id="summary" hidden>
@@ -217,6 +234,15 @@
     </section>
 
     <section>
+      <h4>Screens</h4>
+      <p class="hint">Teaches the app where you look for each screen, so looking at another monitor isn't "looking away".
+        Only needed again if you change your screens.</p>
+      <p id="screens-status" style="margin: 0 0 10px; font-size: 13px;"></p>
+      <button class="end" id="recalibrate">Calibrate screens</button>
+      <p id="screens-message"></p>
+    </section>
+
+    <section>
       <button class="danger" id="reset-settings">Reset to defaults</button>
     </section>
   </aside>
@@ -225,5 +251,6 @@
   <script src="fakeScore.js"></script>
   <script src="renderer.js"></script>
   <script src="settings.js"></script>
+  <script src="calibration.js"></script>
 </body>
 </html>

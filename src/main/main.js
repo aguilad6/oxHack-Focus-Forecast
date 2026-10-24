@@ -11,6 +11,7 @@ const { updateAway, resetAway } = require('./awayDetector');
 const { askSelfReport } = require('./selfReport');
 const { startPresageFace, stopPresageFace, readPresageFace } = require('./presageFace');
 require('./settings'); // lets the settings panel read and change the user's settings file
+const { initCalibration, feedCalibration, lookingAt, notifyCalibration } = require('./calibration');
 
 // Load .env (PRESAGE_API_KEY, USE_PRESAGE) if this laptop has one.
 try {
@@ -37,6 +38,7 @@ function startPresage() {
     startPresageFace();
     presageRunning = true;
     console.log('Presage started');
+    notifyCalibration(); // webcam on: the dashboard can offer screen calibration
   } catch (err) {
     // e.g. no API key, or the Windows TPM key error: carry on without the camera.
     console.error('Presage failed to start, running without it:', err.message);
@@ -47,6 +49,7 @@ function startPresage() {
 async function stopPresage() {
   if (!presageRunning) return;
   presageRunning = false;
+  notifyCalibration();
   const giveUp = new Promise((resolve) => setTimeout(resolve, 3000));
   try {
     await Promise.race([stopPresageFace(), giveUp]);
@@ -140,6 +143,10 @@ function createWindow() {
     }
     const inputReading = readInputRate();
     const faceReading = presageRunning ? readPresageFace() : null;
+    if (faceReading) {
+      faceReading.lookingAt = lookingAt(faceReading); // screen number, 'away', or null (not calibrated)
+      feedCalibration(faceReading);
+    }
 
     if (!sessionActive || win.isDestroyed()) return;
     for (const reading of [windowReading, inputReading, faceReading]) {
@@ -153,6 +160,12 @@ function createWindow() {
 // Electron is ready once its internals have started.
 app.whenReady().then(() => {
   startInputRate();
+  initCalibration({
+    presageRunning: () => presageRunning,
+    onStatusChange: (status) => {
+      if (win && !win.isDestroyed()) win.webContents.send('calibration-status', status);
+    },
+  });
   createWindow();
 });
 

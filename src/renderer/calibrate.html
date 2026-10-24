@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'">
+  <title>Focus Forecast · Calibration</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: grid; place-items: center; cursor: none; user-select: none;
+      font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; color: #e8ebf2;
+      background: radial-gradient(circle at center, #1b2440 0%, #0e131f 60%);
+    }
+    .target { position: relative; width: 120px; height: 120px; display: grid; place-items: center; }
+    .dot { width: 18px; height: 18px; border-radius: 50%; background: #6c8cff; box-shadow: 0 0 24px #6c8cff; }
+    /* Ring shrinks onto the dot over the measuring time (duration set from the URL in calibrate.js) */
+    .ring { position: absolute; inset: 0; border: 3px solid rgba(108, 140, 255, 0.7); border-radius: 50%;
+            animation: shrink linear forwards; }
+    @keyframes shrink { from { transform: scale(1); opacity: 1; } to { transform: scale(0.15); opacity: 0.2; } }
+    .text { position: absolute; bottom: 12%; width: 100%; text-align: center; }
+    .text h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; }
+    .text p { margin: 0; color: #8b93a7; }
+  </style>
+</head>
+<body>
+  <div class="target"><div class="ring" id="ring"></div><div class="dot"></div></div>
+  <div class="text">
+    <h1>Look at the dot</h1>
+    <p id="progress"></p>
+  </div>
+  <script src="calibrate.js"></script>
+</body>
+</html>
