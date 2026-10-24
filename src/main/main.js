@@ -4,7 +4,6 @@
 
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
-const { getConfig } = require('../config');
 const { readActiveWindow } = require('./windowTracker');
 const { startInputRate, stopInputRate, readInputRate } = require('./inputRate');
 const { startRecording, record, stopRecording } = require('./recorder');
@@ -18,6 +17,9 @@ try {
 } catch {
   // no .env: run without Presage
 }
+
+// How often the app collects data (milliseconds).
+const TICK_MS = 1000;
 
 // Presage uses trial minutes, so it only runs on laptops that set USE_PRESAGE=1 in .env.
 let presageRunning = false;
@@ -64,9 +66,7 @@ function createWindow() {
   });
 
   // The every-second loop: collect a reading from each sensor.
-  // Each round schedules the next one, so a changed tickMs in the settings applies straight away.
-  let timer = null;
-  async function tick() {
+  const timer = setInterval(async () => {
     try {
       handleReading(await readActiveWindow());
     } catch (err) {
@@ -74,11 +74,9 @@ function createWindow() {
     }
     handleReading(readInputRate());
     if (presageRunning) handleReading(readPresageFace());
-    if (!win.isDestroyed()) timer = setTimeout(tick, getConfig().tickMs);
-  }
-  timer = setTimeout(tick, getConfig().tickMs);
+  }, TICK_MS);
 
-  win.on('closed', () => clearTimeout(timer));
+  win.on('closed', () => clearInterval(timer));
 }
 
 // Electron is ready once its internals have started.

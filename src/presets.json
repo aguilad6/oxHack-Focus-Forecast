@@ -1,5 +1,4 @@
 {
-  "tickMs": 1000,
   "selfReport": {
     "awayMinutes": 5,
     "popupTimeoutSec": 60

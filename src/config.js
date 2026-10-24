@@ -6,7 +6,6 @@
 // The file is re-read whenever it changes, so edits (by hand or from the app) apply without a restart.
 //
 // Settings:
-//   tickMs                       how often the app collects data (milliseconds)
 //   selfReport.awayMinutes       no keyboard/mouse for this long = user has left (ask when they're back)
 //   selfReport.popupTimeoutSec   pop-up closes by itself if ignored; nothing is saved
 //   categories.distraction/onTask  words matched (lowercase) against the app name and window title,
