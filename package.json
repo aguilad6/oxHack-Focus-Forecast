@@ -4,7 +4,12 @@
   "description": "Predicts focus crashes from webcam vitals and screen activity, and learns which interventions work.",
   "main": "src/main/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "presage-test": "node --env-file-if-exists=.env scripts/presage-test.mjs"
+  },
+  "allowScripts": {
+    "koffi@2.16.3": true,
+    "protobufjs@7.6.6": true
   },
   "repository": {
     "type": "git",
@@ -20,5 +25,8 @@
   "homepage": "https://github.com/aguilad6/oxHack-Focus-Forecast#readme",
   "devDependencies": {
     "electron": "^45.0.0"
+  },
+  "dependencies": {
+    "@smartspectra/node-sdk": "^3.4.0"
   }
 }

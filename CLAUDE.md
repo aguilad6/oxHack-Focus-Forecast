@@ -2,7 +2,7 @@
 
 Laptop app that reads attention and stress from the webcam (Presage SmartSpectra), combines it with
 on-screen activity, predicts focus crashes, recommends an intervention and learns what works.
-Hacking ends Sun 25 Oct 2026, 12:00. Team of 3. Full brief: Focus_Forecast_Project_Brief.pdf (ask the user for it).
+Hacking ends Sun 25 Oct 2026, 12:00. Team of 2 (work split and timeline: docs/PLAN.md). Full brief: Focus_Forecast_Project_Brief.pdf (ask the user for it).
 
 ## Working with Daniel
 - New to git and terminals: give one step at a time, wait for their output before the next step.
