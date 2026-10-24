@@ -7,6 +7,7 @@ const path = require('path');
 const config = require('../config');
 const { readActiveWindow } = require('./windowTracker');
 const { startInputRate, stopInputRate, readInputRate } = require('./inputRate');
+const { startRecording, record, stopRecording } = require('./recorder');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -22,15 +23,21 @@ function createWindow() {
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
-  // The every-second loop: collect a reading from each sensor and send it to the window.
+  // Every reading is saved to the session file and sent to the window.
+  function handleReading(reading) {
+    record(reading);
+    win.webContents.send('reading', reading);
+  }
+
+  // The every-second loop: collect a reading from each sensor.
   // (presage.js will be added here the same way.)
   const timer = setInterval(async () => {
     try {
-      win.webContents.send('reading', await readActiveWindow());
+      handleReading(await readActiveWindow());
     } catch (err) {
       console.error('Window tracker failed:', err.message);
     }
-    win.webContents.send('reading', readInputRate());
+    handleReading(readInputRate());
   }, config.tickMs);
 
   win.on('closed', () => clearInterval(timer));
@@ -38,12 +45,17 @@ function createWindow() {
 
 // Electron is ready once its internals have started.
 app.whenReady().then(() => {
+  console.log('Recording to', startRecording());
   startInputRate();
   createWindow();
 });
 
-// Stop the keyboard/mouse listener before quitting, so it doesn't keep the app alive.
-app.on('will-quit', stopInputRate);
+// Before quitting: stop the keyboard/mouse listener (so it doesn't keep the app alive)
+// and close the session file.
+app.on('will-quit', () => {
+  stopInputRate();
+  stopRecording();
+});
 
 // On Windows/Linux, closing the last window quits the app.
 app.on('window-all-closed', () => {

@@ -24,10 +24,15 @@ presage.js ───────┘       │
 
 **Running and saving** (`src/main/`)
 - `main.js`: starts the app and runs the every-second loop. (Shared)
-- `recorder.js`: saves all the data to a file in `data/`, so sessions can be replayed and used for training. (Daniel)
+- `recorder.js`: saves every reading as one line in `data/session-<date>_<time>.jsonl`, one file per run.
+  All sessions are kept (about 1.5 MB per hour), so sessions can be replayed and used for training. (Daniel)
 
 **Thinking** (`src/engine/`)
 - `scoring.js`: turns the data into a focus score and a state (flow, hooked, zoned out, break). (Teammate)
+  Uses two baselines:
+  - **Long-term** ("normal you"), from all past sessions, updated slowly (90% old + 10% today) so one bad
+    day doesn't become the new normal. Used for "you're more stressed than usual today".
+  - **This session** ("you today"), from the first few minutes. Used for "focus is dropping right now".
 - `forecast.js`: ML. Predicts the chance you'll lose focus in the next 5 minutes. (Teammate)
 - `bandit.js`: ML. Picks advice (break, breathing, switch task, push on) and learns what works. (Daniel)
 
