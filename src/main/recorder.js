@@ -8,7 +8,7 @@ const path = require('path');
 
 const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 
-let stream = null; // the open session file
+let file = null; // path of the current session file
 
 // Open a new session file, e.g. data/session-2026-10-24_15-30-05.jsonl. Returns its path.
 function startRecording() {
@@ -19,22 +19,19 @@ function startRecording() {
   const pad = (n) => String(n).padStart(2, '0');
   const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_` +
                 `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
-  const file = path.join(DATA_DIR, `session-${stamp}.jsonl`);
-
-  // 'a' = append: each write adds to the end of the file.
-  stream = fs.createWriteStream(file, { flags: 'a' });
+  file = path.join(DATA_DIR, `session-${stamp}.jsonl`);
   return file;
 }
 
-// Add one reading as a new line.
+// Add one reading as a new line. Written to disk immediately ("Sync"), so nothing is lost
+// if the app quits or crashes straight afterwards. A few lines per second is no strain.
 function record(reading) {
-  if (stream) stream.write(JSON.stringify(reading) + '\n');
+  if (file) fs.appendFileSync(file, JSON.stringify(reading) + '\n');
 }
 
-// Finish writing and close the file. Call when the app quits.
+// Stop recording. Call when the app quits.
 function stopRecording() {
-  if (stream) stream.end();
-  stream = null;
+  file = null;
 }
 
 module.exports = { startRecording, record, stopRecording };
