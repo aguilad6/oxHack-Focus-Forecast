@@ -60,7 +60,7 @@ async function measureScreen(display, index, total) {
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
-    backgroundColor: '#0e131f',
+    backgroundColor: '#f6f3ec',
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
       contextIsolation: true,

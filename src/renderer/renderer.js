@@ -3,20 +3,29 @@
 
 const v = window.focusApi.versions;
 document.getElementById('versions').textContent = `Electron ${v.electron} · Node ${v.node}`;
+document.getElementById('today-date').textContent =
+  new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+
+// chart.js comes from `npm install`. If it's missing, say so instead of showing a blank dashboard.
+if (typeof Chart === 'undefined') {
+  document.getElementById('state-label').textContent = 'Setup problem';
+  document.getElementById('state-message').textContent =
+    "The chart library is missing. Close the app, run 'npm install' in the project folder, then 'npm start' again.";
+  throw new Error('chart.js not found: run npm install');
+}
 
 const WINDOW_MINUTES = 30; // how much history the chart shows
 let sessionStart = Date.now();
 let lastOutputTime = sessionStart;
 
-// How each state is shown: name, colour, and a plain-language line.
+// How each state is shown: headline, colour, and a plain-language line.
 const STATES = {
-  flow:     { label: 'Flow',      color: '#3ecf8e', message: "You're focused on work. Stay with it — we'll keep quiet." },
-  hooked:   { label: 'Hooked',    color: '#f5a524', message: "You're engaged, but on a distraction. Time is slipping by." },
-  zonedOut: { label: 'Zoned out', color: '#8f9cf2', message: "Work is open, but you've gone quiet. A short break or a switch might help." },
-  break:    { label: 'Break',     color: '#9aa3b5', message: "Taking a break. Enjoy it — we'll help you get back." },
-  checkingIn: { label: 'Checking in', color: '#59627a', message: "You're looking at Focus Forecast. Head back to your work when you're ready." },
-  neutral:  { label: 'Neutral',   color: '#7a8296', message: 'Not on work or a distraction right now.' },
-  unknown:  { label: 'Unknown',   color: '#59627a', message: "Can't tell yet. Open your work and we'll pick it up." },
+  flow:     { label: 'In flow.',      color: '#2f7d5b', message: "You're on your work. We'll stay quiet." },
+  hooked:   { label: 'Hooked.',       color: '#c2532d', message: "You're busy, but on a distraction." },
+  zonedOut: { label: 'Zoned out.',    color: '#4f6d9a', message: "Work is open but nothing's happening. A short break or a change of task might help." },
+  break:    { label: 'On a break.',   color: '#8a8378', message: "Take your time. We'll help you ease back in." },
+  neutral:  { label: 'Neutral.',      color: '#8a8378', message: 'Not on work or a distraction right now.' },
+  unknown:  { label: 'Not sure yet.', color: '#a39d92', message: "Open your work and we'll pick it up." },
 };
 
 // What the chart can show, picked in the dropdown.
@@ -25,16 +34,16 @@ const STATES = {
 // yMin/yMax = fixed axis range (undefined = fit to the data). Counts start at 0, never below.
 // Heart rate, breathing and HRV switch on by themselves once readings with those fields arrive.
 const SIGNALS = {
-  focus:     { label: 'Focus',                   color: '#6c8cff', yMin: 0, yMax: 100 }, // filled in by showOutput()
-  pulse:     { label: 'Heart rate (bpm)',        color: '#ff6b8a', get: (r) => r.pulse },
-  breathing: { label: 'Breathing (per min)',     color: '#4cc9f0', get: (r) => r.breathing },
-  hrv:       { label: 'HRV (ms)',                color: '#c77dff', get: (r) => r.hrv },
-  blinks:    { label: 'Blinks per minute',       color: '#c77dff', get: (r) => r.blinks, perMinute: true, yMin: 0 },
-  gazeH:     { label: 'Gaze left–right',         color: '#4cc9f0', get: (r) => r.gazeH, yMin: 0, yMax: 1 },
-  gazeV:     { label: 'Gaze up–down',            color: '#4cc9f0', get: (r) => r.gazeV, yMin: 0, yMax: 1 },
-  keys:      { label: 'Keys per minute',         color: '#f5a524', get: (r) => (r.source === 'input' ? r.keys : undefined), perMinute: true, yMin: 0 },
-  clicks:    { label: 'Clicks per minute',       color: '#f5a524', get: (r) => (r.source === 'input' ? r.clicks : undefined), perMinute: true, yMin: 0 },
-  switches:  { label: 'App switches per minute', color: '#f5a524', get: (r) => (r.source === 'window' ? (r.switched ? 1 : 0) : undefined), perMinute: true, yMin: 0 },
+  focus:     { label: 'Focus',                   color: '#1d1b18', yMin: 0, yMax: 100 }, // filled in by showOutput()
+  pulse:     { label: 'Heart rate (bpm)',        color: '#b03a48', get: (r) => r.pulse },
+  breathing: { label: 'Breathing (per min)',     color: '#3f7f8c', get: (r) => r.breathing },
+  hrv:       { label: 'HRV (ms)',                color: '#6b5a8e', get: (r) => r.hrv },
+  blinks:    { label: 'Blinks per minute',       color: '#6b5a8e', get: (r) => r.blinks, perMinute: true, yMin: 0 },
+  gazeH:     { label: 'Gaze left–right',         color: '#3f7f8c', get: (r) => r.gazeH, yMin: 0, yMax: 1 },
+  gazeV:     { label: 'Gaze up–down',            color: '#3f7f8c', get: (r) => r.gazeV, yMin: 0, yMax: 1 },
+  keys:      { label: 'Keys per minute',         color: '#a8641f', get: (r) => (r.source === 'input' ? r.keys : undefined), perMinute: true, yMin: 0 },
+  clicks:    { label: 'Clicks per minute',       color: '#a8641f', get: (r) => (r.source === 'input' ? r.clicks : undefined), perMinute: true, yMin: 0 },
+  switches:  { label: 'App switches per minute', color: '#a8641f', get: (r) => (r.source === 'window' ? (r.switched ? 1 : 0) : undefined), perMinute: true, yMin: 0 },
 };
 
 let selected = 'focus';
@@ -57,13 +66,20 @@ function fadeFill(context) {
   if (!chartArea) return 'transparent'; // not laid out yet
   const color = SIGNALS[selected].color;
   const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-  gradient.addColorStop(0, color + '55');
+  gradient.addColorStop(0, color + '22');
   gradient.addColorStop(1, color + '00');
   return gradient;
 }
 
-Chart.defaults.color = '#8b93a7';
-Chart.defaults.font.family = '"Segoe UI Variable", "Segoe UI", system-ui, sans-serif';
+// The focus line takes the colour of the state at that moment (green in flow, rust when hooked, ...).
+// Other signals use their own single colour.
+function segmentColor(context) {
+  if (selected !== 'focus') return SIGNALS[selected].color;
+  return (STATES[context.p1.raw.state] || STATES.unknown).color;
+}
+
+Chart.defaults.color = '#6f6a60';
+Chart.defaults.font.family = '"Segoe UI", system-ui, -apple-system, sans-serif';
 
 const chart = new Chart(document.getElementById('chart'), {
   type: 'line',
@@ -71,13 +87,15 @@ const chart = new Chart(document.getElementById('chart'), {
     datasets: [{
       data: [],
       borderColor: SIGNALS.focus.color,
+      segment: { borderColor: segmentColor },
       backgroundColor: fadeFill,
       fill: true,
       borderWidth: 2.5,
       pointRadius: 0,
-      pointHoverRadius: 5,
-      pointHoverBackgroundColor: '#fff',
-      tension: 0.35,
+      pointHoverRadius: 4,
+      pointHoverBackgroundColor: '#f6f3ec',
+      pointHoverBorderWidth: 2,
+      tension: 0.3,
     }],
   },
   options: {
@@ -90,9 +108,12 @@ const chart = new Chart(document.getElementById('chart'), {
       legend: { display: false },
       tooltip: {
         displayColors: false,
-        backgroundColor: '#0b0f19',
-        borderColor: '#2b3448',
+        backgroundColor: '#fffdf8',
+        titleColor: '#6f6a60',
+        bodyColor: '#1d1b18',
+        borderColor: '#ddd6c8',
         borderWidth: 1,
+        cornerRadius: 3,
         padding: 10,
         callbacks: {
           title: (items) => timeAgo(items[0].chart.options.scales.x.max - items[0].parsed.x),
@@ -112,12 +133,12 @@ const chart = new Chart(document.getElementById('chart'), {
           },
         },
         grid: { display: false },
-        border: { color: '#232b3c' },
+        border: { color: '#1d1b18' },
       },
       y: {
         min: 0,
         max: 100,
-        grid: { color: '#1f2636' },
+        grid: { color: '#e6e0d3' },
         border: { display: false },
       },
     },
@@ -135,9 +156,9 @@ function showSignal(key) {
   chart.options.scales.y.max = signal.yMax;
   chart.update('none');
 
-  document.getElementById('chart-title').textContent = `${signal.label} · last ${WINDOW_MINUTES} minutes`;
+  document.getElementById('chart-title').textContent = `${signal.label}, last ${WINDOW_MINUTES} minutes`;
   document.getElementById('chart-note').textContent = key === 'focus'
-    ? 'Temporary estimate from app and activity only, until the real focus score is ready.'
+    ? 'For now this is a rough estimate from your apps and activity. The full focus score is on its way.'
     : '';
 }
 
@@ -148,7 +169,7 @@ function trimOld(points, now) {
 }
 
 // Add one value to a signal's history; switch on its dropdown option the first time.
-function addPoint(key, t, y) {
+function addPoint(key, t, y, state) {
   if (!series[key]) {
     series[key] = [];
     const option = select.querySelector(`option[value="${key}"]`);
@@ -156,7 +177,7 @@ function addPoint(key, t, y) {
     option.textContent = SIGNALS[key].label;
     if (key === selected) chart.data.datasets[0].data = series[key];
   }
-  series[key].push({ x: t, y });
+  series[key].push({ x: t, y, state }); // state: only for focus points, to colour the line
   trimOld(series[key], t);
 }
 
@@ -191,66 +212,142 @@ function recordSignals(reading) {
   }
 }
 
-// ---- Raw readings: one dropdown per sensor ----
-const SOURCE_LABELS = {
-  window: 'Screen (window tracker)',
-  input: 'Keyboard & mouse',
-  face: 'Face (Presage)',
-  away: 'Last time away',
-  selfReport: 'Last self-report',
-};
-const FIELD_LABELS = {
-  app: 'App', category: 'Category', switched: 'Just switched',
-  keys: 'Keys', clicks: 'Clicks', scrolls: 'Scrolls', mouseMoved: 'Mouse moved',
-  status: 'Camera check', blinks: 'Blinks', talking: 'Talking', gazeH: 'Gaze left–right', gazeV: 'Gaze up–down',
-  expression: 'Expression', expressionConfidence: 'Expression confidence (%)',
-  headYaw: 'Head left–right', headPitch: 'Head up–down', lookingAt: 'Looking at',
-  pulse: 'Heart rate (bpm)', breathing: 'Breathing (per min)', hrv: 'HRV (ms)',
-  seconds: 'Seconds away', rating: 'Rating (1–5)', trigger: 'Asked when',
-};
-const CAMERA_CHECK = { 0: 'OK', 2: 'several faces', 5: 'too dark', 7: 'chest not visible' };
+// ---- Sensors: one card per sensor, in plain words ----
 
-function formatValue(key, value) {
-  if (key === 'lookingAt') return value === null ? 'not calibrated' : value === 'away' ? 'away' : `screen ${value + 1}`;
-  if (value === null || value === undefined) return '–';
-  if (key === 'status') return CAMERA_CHECK[value] ? `${value} (${CAMERA_CHECK[value]})` : String(value);
-  if (typeof value === 'boolean') return value ? 'yes' : 'no';
-  if (typeof value === 'number' && !Number.isInteger(value)) return value.toFixed(2);
-  return String(value);
+// Turning raw values into readable text.
+const CATEGORY_TEXT = { 'on-task': 'Work', distraction: 'Distraction', neutral: 'Neutral', self: 'Focus Forecast', unknown: 'Unknown' };
+const TRIGGER_TEXT = { endOfSession: 'At the end of a session', returnFromAway: 'After coming back from a break' };
+const CAMERA_TEXT = { 0: 'OK', 2: 'Several faces', 5: 'Too dark', 7: 'Chest not visible' };
+const yesNo = (value) => (value ? 'Yes' : 'No');
+const twoDecimals = (value) => (value === null || value === undefined ? '–' : value.toFixed(2));
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const duration = (s) => (s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`);
+const cameraText = (r) => (r.status === null ? 'Starting' : CAMERA_TEXT[r.status] ?? `Code ${r.status}`);
+const lookingText = (r) => (r.lookingAt === null || r.lookingAt === undefined ? 'Not calibrated'
+  : r.lookingAt === 'away' ? 'Away from screens' : `Screen ${r.lookingAt + 1}`);
+const expressionText = (r) => (r.expression
+  ? `${r.expression[0].toUpperCase()}${r.expression.slice(1)} (${r.expressionConfidence}%)` : '–');
+
+// For each sensor: name, colour, a one-line summary (shown while closed) and the fields (shown when opened).
+const SENSORS = {
+  window: {
+    name: 'Screen',
+    color: '#4f6d9a',
+    summary: (r) => `${r.app ?? 'No window'} · ${CATEGORY_TEXT[r.category] ?? r.category}`,
+    fields: [
+      ['App in front', (r) => r.app ?? '–'],
+      ['Counts as', (r) => CATEGORY_TEXT[r.category] ?? r.category],
+      ['Just switched app', (r) => yesNo(r.switched)],
+    ],
+  },
+  input: {
+    name: 'Keyboard & mouse',
+    color: '#a8641f',
+    summary: (r) => `${plural(r.keys, 'key')} · ${plural(r.clicks, 'click')} in the last second`,
+    fields: [
+      ['Keys pressed', (r) => r.keys],
+      ['Clicks', (r) => r.clicks],
+      ['Scrolls', (r) => r.scrolls],
+      ['Mouse moved', (r) => yesNo(r.mouseMoved)],
+    ],
+  },
+  face: {
+    name: 'Face (webcam)',
+    color: '#6b5a8e',
+    summary: (r) => (r.status === 0 ? `${lookingText(r)} · ${expressionText(r)}` : `Camera: ${cameraText(r)}`),
+    fields: [
+      ['Camera check', cameraText],
+      ['Looking at', lookingText],
+      ['Expression', expressionText],
+      ['Blinks', (r) => r.blinks],
+      ['Talking', (r) => yesNo(r.talking)],
+      ['Eyes left–right', (r) => twoDecimals(r.gazeH)],
+      ['Eyes up–down', (r) => twoDecimals(r.gazeV)],
+      ['Head left–right', (r) => twoDecimals(r.headYaw)],
+      ['Head up–down', (r) => twoDecimals(r.headPitch)],
+    ],
+  },
+  away: {
+    name: 'Last break',
+    color: '#8a8378',
+    summary: (r) => `Away for ${duration(r.seconds)}`,
+    fields: [
+      ['Away for', (r) => duration(r.seconds)],
+      ['Came back at', (r) => new Date(r.t).toLocaleTimeString()],
+    ],
+  },
+  selfReport: {
+    name: 'Last self-report',
+    color: '#2f7d5b',
+    summary: (r) => `${r.rating}/5 · ${TRIGGER_TEXT[r.trigger] ?? r.trigger}`,
+    fields: [
+      ['Your rating', (r) => `${r.rating} out of 5`],
+      ['Asked', (r) => TRIGGER_TEXT[r.trigger] ?? r.trigger],
+      ['Answered at', (r) => new Date(r.t).toLocaleTimeString()],
+    ],
+  },
+};
+const SENSOR_ORDER = Object.keys(SENSORS); // cards always appear in this order
+
+// Any other source (e.g. heart-rate readings added later): show its fields as they are.
+function genericSensor(source) {
+  return {
+    name: source,
+    color: '#a39d92',
+    summary: () => '',
+    fields: null, // null = list every field
+  };
 }
 
-const rawPanels = {}; // source -> { time, table }, created the first time that sensor reports
+const rawPanels = {}; // source -> { summary, time, grid, sensor }, created the first time that sensor reports
+
+function makeElement(tag, className, text) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
+
+function createPanel(source) {
+  const sensor = SENSORS[source] || genericSensor(source);
+  const container = document.getElementById('raw');
+  if (!Object.keys(rawPanels).length) container.replaceChildren(); // drop "Waiting…"
+
+  const details = makeElement('details', 'sensor');
+  details.style.setProperty('--sensor', sensor.color);
+  const head = makeElement('summary');
+  const title = makeElement('div', 'sensor-title');
+  title.append(makeElement('span', 'sensor-dot'), makeElement('strong', '', sensor.name));
+  const summary = makeElement('span', 'sensor-summary');
+  const time = makeElement('span', 'sensor-time');
+  head.append(title, summary, time, makeElement('span', 'chevron', '›'));
+  const grid = makeElement('div', 'sensor-grid');
+  details.append(head, grid);
+
+  // Insert in SENSOR_ORDER position (unknown sources go last).
+  const order = (s) => (SENSOR_ORDER.includes(s) ? SENSOR_ORDER.indexOf(s) : SENSOR_ORDER.length);
+  details.dataset.order = order(source);
+  const after = [...container.children].find((el) => Number(el.dataset.order) > order(source));
+  container.insertBefore(details, after || null);
+
+  return (rawPanels[source] = { summary, time, grid, sensor });
+}
 
 function showRaw(reading) {
-  let panel = rawPanels[reading.source];
-  if (!panel) {
-    if (!Object.keys(rawPanels).length) document.getElementById('raw').replaceChildren(); // drop "Waiting…"
-    const details = document.createElement('details');
-    const summary = document.createElement('summary');
-    const name = document.createElement('span');
-    name.textContent = SOURCE_LABELS[reading.source] || reading.source;
-    const time = document.createElement('span');
-    time.className = 'time';
-    summary.append(name, time);
-    const table = document.createElement('table');
-    details.append(summary, table);
-    document.getElementById('raw').appendChild(details);
-    panel = rawPanels[reading.source] = { time, table };
-  }
+  const panel = rawPanels[reading.source] || createPanel(reading.source);
+  const { sensor } = panel;
 
+  panel.summary.textContent = sensor.summary(reading);
   panel.time.textContent = new Date(reading.t).toLocaleTimeString();
-  const rows = Object.entries(reading)
-    .filter(([key]) => key !== 't' && key !== 'source')
-    .map(([key, value]) => {
-      const row = document.createElement('tr');
-      const label = document.createElement('th');
-      label.textContent = FIELD_LABELS[key] || key;
-      const cell = document.createElement('td');
-      cell.textContent = formatValue(key, value);
-      row.append(label, cell);
-      return row;
-    });
-  panel.table.replaceChildren(...rows);
+
+  const fields = sensor.fields || Object.keys(reading)
+    .filter((key) => key !== 't' && key !== 'source')
+    .map((key) => [key, (r) => (typeof r[key] === 'number' ? twoDecimals(r[key]) : String(r[key] ?? '–'))]);
+  panel.grid.replaceChildren(...fields.map(([label, value]) => {
+    const cell = makeElement('div', 'field');
+    cell.append(makeElement('span', 'field-label', label), makeElement('span', 'field-value', String(value(reading))));
+    return cell;
+  }));
 }
 
 // ---- Session tiles and timer ----
@@ -275,23 +372,31 @@ function updateSession(output) {
 }
 
 // ---- Focus output: { t, focus, state } once per second ----
+let currentState = null;
+let stateSince = null; // when the current state started, for "for 12 min"
+
 function showOutput(output) {
   lastOutputTime = output.t;
-  addPoint('focus', output.t, output.focus);
+  addPoint('focus', output.t, output.focus, output.state);
 
   // Slide the chart's time window so "now" is at the right edge.
   chart.options.scales.x.min = output.t - WINDOW_MINUTES * 60 * 1000;
   chart.options.scales.x.max = output.t;
   chart.update('none');
 
-  // Ring and state text.
+  // "Right now": headline in the state's colour, a plain-language line, and how long it's lasted.
+  if (output.state !== currentState) {
+    currentState = output.state;
+    stateSince = output.t;
+  }
   const state = STATES[output.state] || STATES.unknown;
-  const root = document.documentElement.style;
-  root.setProperty('--state', state.color);
-  document.getElementById('ring').style.setProperty('--p', output.focus ?? 0);
-  document.getElementById('ring-label').textContent = state.label;
+  document.documentElement.style.setProperty('--state', state.color);
   document.getElementById('state-label').textContent = state.label;
-  document.getElementById('state-message').textContent = state.message;
+  document.getElementById('state-message').textContent = output.onDashboard && output.state === 'hooked'
+    ? "You're looking at Focus Forecast. Time here counts as time away from work."
+    : state.message;
+  const minutes = Math.floor((output.t - stateSince) / 60000);
+  document.getElementById('state-for').textContent = minutes >= 1 ? `For ${minutes} min so far.` : '';
 
   updateSession(output);
 }
@@ -331,9 +436,11 @@ window.focusApi.onSessionStarted(({ t }) => {
   updateSession({ t, state: null });
   resetFakeScore();
 
+  currentState = null;
+  document.documentElement.style.removeProperty('--state');
   document.getElementById('state-label').textContent = 'Starting…';
-  document.getElementById('ring-label').textContent = '…';
   document.getElementById('state-message').textContent = 'Waiting for data…';
+  document.getElementById('state-for').textContent = '';
   document.getElementById('summary').hidden = true;
   document.getElementById('hero').hidden = false;
   document.getElementById('end-session').hidden = false;

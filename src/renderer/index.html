@@ -6,223 +6,238 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'">
   <title>Focus Forecast</title>
   <style>
+    /* "Forecast paper": warm paper, dark ink, one accent per state, serif headlines, thin rules. */
     :root {
-      --bg: #0e131f;
-      --card: #161c2a;
-      --border: #232b3c;
-      --text: #e8ebf2;
-      --muted: #8b93a7;
-      --accent: #6c8cff;
-      --state: #59627a; /* set from renderer.js to the current state's colour */
+      --paper: #f6f3ec;
+      --paper-deep: #efeadf;
+      --ink: #1d1b18;
+      --muted: #6f6a60;
+      --faint: #a39d92;
+      --rule: #ddd6c8;
+      --accent: #c2532d;
+      --state: #a39d92; /* set from renderer.js to the current state's colour */
+      --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+      --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
     }
     * { box-sizing: border-box; }
     [hidden] { display: none !important; }
-    body {
-      margin: 0; padding: 24px 32px 32px;
-      font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-      color: var(--text);
-      background: radial-gradient(1200px 500px at 15% -10%, #1b2440 0%, var(--bg) 60%) fixed, var(--bg);
-    }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; margin-bottom: 16px; }
-    .label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 14px; }
+    .page { max-width: 1000px; margin: 0 auto; padding: 28px 40px 48px; }
     .muted { color: var(--muted); font-size: 12px; }
+    hr { border: none; border-top: 1px solid var(--rule); margin: 28px 0; }
+    button { font: inherit; cursor: pointer; }
 
-    /* Header */
-    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
-    .live { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
-            color: #3ecf8e; background: rgba(62, 207, 142, 0.1); padding: 3px 8px; border-radius: 999px; }
-    .live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #3ecf8e; animation: pulse 2s infinite; }
-    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(62, 207, 142, 0.6); } 70% { box-shadow: 0 0 0 7px rgba(62, 207, 142, 0); } 100% { box-shadow: 0 0 0 0 rgba(62, 207, 142, 0); } }
-    .timer { text-align: right; }
-    .timer strong { display: block; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
-    .header-right { display: flex; align-items: center; gap: 20px; }
-    .end { font: inherit; font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer;
-           background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; }
-    .end:hover { border-color: #ff6b8a; color: #ff6b8a; }
-    .end:disabled { opacity: 0.4; cursor: default; border-color: var(--border); color: var(--text); }
+    /* Masthead */
+    header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px;
+             padding-bottom: 14px; border-bottom: 2px solid var(--ink); }
+    .masthead { font-family: var(--serif); font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+    .dateline { margin-top: 2px; color: var(--muted); font-size: 13px; }
+    .recording { color: var(--accent); }
+    .recording::before { content: "●"; margin-right: 5px; font-size: 10px; vertical-align: 1px; }
+    .header-right { display: flex; align-items: center; gap: 18px; }
+    .timer { font-family: var(--serif); font-size: 24px; font-variant-numeric: tabular-nums; }
+    .text-btn { background: none; border: none; padding: 4px 0; color: var(--ink); font-size: 13px;
+                border-bottom: 1px solid var(--rule); }
+    .text-btn:hover { border-bottom-color: var(--ink); }
+    .text-btn:disabled { color: var(--faint); border-bottom-color: transparent; cursor: default; }
+    .solid-btn { background: var(--ink); color: var(--paper); border: none; border-radius: 4px; padding: 9px 16px; font-size: 13px; font-weight: 600; }
+    .solid-btn:hover { background: #3a3631; }
 
-    /* Settings panel: slides in from the right */
-    .backdrop { position: fixed; inset: 0; background: rgba(5, 8, 15, 0.55); z-index: 10; }
-    .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(400px, 100%); z-index: 11;
-              background: var(--card); border-left: 1px solid var(--border); padding: 22px 24px; overflow-y: auto;
-              animation: slide-in 0.2s ease-out; }
-    @keyframes slide-in { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
-    .drawer-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .drawer-head h3 { margin: 0; font-size: 18px; }
-    .icon-btn { background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; }
-    .icon-btn:hover { color: var(--text); }
-    .drawer section { padding: 16px 0; border-bottom: 1px solid var(--border); }
-    .drawer section:last-of-type { border-bottom: none; }
-    .drawer h4 { margin: 0 0 4px; font-size: 14px; }
-    .drawer .hint { margin: 0 0 10px; font-size: 12px; color: var(--muted); }
-    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-    .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; padding: 4px 4px 4px 10px;
-            background: #0f1522; border: 1px solid var(--border); border-radius: 999px; }
-    .chip button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0 4px; }
-    .chip button:hover { color: #ff6b8a; }
-    .chips.on-task .chip { border-color: rgba(62, 207, 142, 0.35); }
-    .chips.distraction .chip { border-color: rgba(245, 165, 36, 0.35); }
-    .chips.rows { flex-direction: column; align-items: stretch; }
-    .chips.rows .chip { justify-content: space-between; border-radius: 8px; }
-    .add { display: flex; gap: 8px; }
-    .add input, .number input { flex: 1; font: inherit; font-size: 13px; color: var(--text); background: #0f1522;
-                                border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; }
-    .add button { font: inherit; font-size: 13px; font-weight: 600; color: #0e131f; background: var(--accent);
-                  border: none; border-radius: 8px; padding: 0 14px; cursor: pointer; }
-    .number { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; font-size: 13px; }
-    .number input { flex: none; width: 80px; text-align: right; }
-    .danger { font: inherit; font-size: 13px; color: #ff6b8a; background: transparent; cursor: pointer;
-              border: 1px solid rgba(255, 107, 138, 0.4); border-radius: 8px; padding: 8px 14px; }
-    .danger:hover { background: rgba(255, 107, 138, 0.1); }
+    /* Banner (calibration) */
+    .banner { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 20px; padding: 12px 16px;
+              background: var(--paper-deep); border-left: 3px solid var(--accent); }
+    .banner span { flex: 1; min-width: 220px; }
 
-    /* Calibration banner */
-    .banner { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; padding: 12px 16px;
-              background: rgba(108, 140, 255, 0.1); border: 1px solid rgba(108, 140, 255, 0.35); border-radius: 12px; }
-    .banner span { flex: 1; min-width: 200px; }
-    .banner .start { padding: 8px 14px; font-size: 13px; }
-    .link-btn { font: inherit; font-size: 13px; color: var(--muted); background: none; border: none; cursor: pointer; }
-    .link-btn:hover { color: var(--text); }
-    #screens-message { margin: 8px 0 0; font-size: 12px; color: #ff6b8a; }
+    /* Right now */
+    .now { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; margin-top: 28px; }
+    .kicker { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+    .headline { margin: 0; font-family: var(--serif); font-size: 44px; font-weight: 600; line-height: 1.05; color: var(--state); }
+    .standfirst { margin: 8px 0 0; max-width: 560px; font-size: 15px; line-height: 1.45; color: #3d3933; }
+    .standfirst .for { color: var(--muted); }
 
-    /* Session summary (shown after "End session") */
-    .summary h2 { margin: 6px 0 8px; font-size: 30px; font-weight: 700; }
-    .summary h2 span { color: #3ecf8e; }
-    .summary p { margin: 0 0 18px; color: var(--muted); }
-    .start { font: inherit; font-size: 14px; font-weight: 600; color: #0e131f; cursor: pointer;
-             background: var(--accent); border: none; border-radius: 10px; padding: 10px 18px; }
-    .start:hover { filter: brightness(1.1); }
+    /* Session summary (after "End session") */
+    .summary h2 { margin: 0; font-family: var(--serif); font-size: 40px; font-weight: 600; }
+    .summary h2 span { color: #2f7d5b; }
+    .summary p { margin: 8px 0 18px; color: #3d3933; font-size: 15px; }
 
-    /* Hero: focus ring + state */
-    .hero { display: flex; align-items: center; gap: 28px; }
-    .ring {
-      --p: 0; /* focus 0-100, set from renderer.js */
-      flex: none; width: 132px; height: 132px; border-radius: 50%;
-      display: grid; place-items: center;
-      background: conic-gradient(var(--state) calc(var(--p) * 1%), var(--border) 0);
-      box-shadow: 0 0 40px -8px var(--state);
-      transition: box-shadow 0.6s;
-    }
-    .ring-inner { width: 108px; height: 108px; border-radius: 50%; background: var(--card);
-                  display: grid; place-items: center; text-align: center; }
-    .ring-inner span { font-size: 16px; font-weight: 700; color: var(--state); }
-    .hero h2 { margin: 4px 0 6px; font-size: 26px; font-weight: 700; }
-    .hero p { margin: 0; color: var(--muted); max-width: 520px; line-height: 1.45; }
-
-    /* Tiles */
-    .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
-    .tile { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px; }
-    .tile strong { display: block; margin-top: 6px; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
-    .tile .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    /* Figures row */
+    .figures { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 28px; border-top: 1px solid var(--rule); }
+    .figure { padding: 14px 16px 0 0; }
+    .figure + .figure { padding-left: 16px; border-left: 1px solid var(--rule); }
+    /* Each figure's number in its state colour */
+    .figure.flow strong { color: #2f7d5b; }
+    .figure.hooked strong { color: #c2532d; }
+    .figure.zoned strong { color: #4f6d9a; }
+    .figure .name { color: var(--muted); font-size: 13px; }
+    .figure .name i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+    .figure strong { display: block; margin-top: 4px; font-family: var(--serif); font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
     /* Chart */
-    .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .card-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
-    .chart-box { position: relative; height: 260px; }
-    select { font: inherit; font-size: 13px; color: var(--text); background: #0f1522; border: 1px solid var(--border);
-             border-radius: 8px; padding: 6px 10px; }
-    select option:disabled { color: #5b6378; }
+    .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+    .section-head h3 { margin: 0; font-family: var(--serif); font-size: 20px; font-weight: 600; }
+    .chart-box { position: relative; height: 270px; }
+    select { font: inherit; font-size: 13px; color: var(--ink); background: transparent; border: none;
+             border-bottom: 1px solid var(--rule); padding: 4px 2px; }
+    select:hover { border-bottom-color: var(--ink); }
 
-    /* Raw readings: one dropdown per sensor */
-    #raw details { border-top: 1px solid var(--border); }
-    #raw details:first-child { border-top: none; }
-    #raw summary { display: flex; justify-content: space-between; padding: 10px 0; cursor: pointer; font-weight: 600; }
-    #raw summary .time { font-weight: 400; color: var(--muted); font-size: 12px; }
-    #raw table { border-collapse: collapse; margin: 0 0 12px; font-size: 13px; }
-    #raw th { text-align: left; font-weight: 400; color: var(--muted); padding: 3px 24px 3px 0; }
-    #raw td { font-variant-numeric: tabular-nums; }
+    /* Sensors */
+    #raw { border-top: 1px solid var(--rule); }
+    .sensor { --sensor: var(--faint); border-bottom: 1px solid var(--rule); }
+    .sensor summary { display: flex; align-items: center; gap: 14px; padding: 11px 0; cursor: pointer; list-style: none; }
+    .sensor summary::-webkit-details-marker { display: none; }
+    .sensor-title { display: flex; align-items: center; gap: 8px; min-width: 170px; }
+    .sensor-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sensor); }
+    .sensor-title strong { font-weight: 600; }
+    .sensor-summary { flex: 1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sensor-time { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .chevron { color: var(--muted); font-size: 18px; line-height: 1; transition: transform 0.15s; }
+    .sensor[open] .chevron { transform: rotate(90deg); }
+    .sensor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px 24px; padding: 0 0 16px 16px; }
+    .field-label { display: block; color: var(--muted); font-size: 12px; }
+    .field-value { display: block; margin-top: 2px; font-size: 15px; font-variant-numeric: tabular-nums; }
+    footer { margin-top: 24px; }
 
-    @media (max-width: 760px) { .tiles { grid-template-columns: repeat(2, 1fr); } .hero { flex-direction: column; align-items: flex-start; } }
+    /* Settings panel: slides in from the right */
+    .backdrop { position: fixed; inset: 0; background: rgba(29, 27, 24, 0.25); z-index: 10; }
+    .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100%); z-index: 11; overflow-y: auto;
+              background: var(--paper); border-left: 1px solid var(--rule); padding: 26px 28px;
+              box-shadow: -12px 0 30px rgba(29, 27, 24, 0.08); animation: slide-in 0.18s ease-out; }
+    @keyframes slide-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .drawer-head { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 10px; border-bottom: 2px solid var(--ink); }
+    .drawer-head h3 { margin: 0; font-family: var(--serif); font-size: 24px; font-weight: 600; }
+    .icon-btn { background: none; border: none; color: var(--muted); font-size: 24px; line-height: 1; }
+    .icon-btn:hover { color: var(--ink); }
+    .drawer section { padding: 18px 0; border-bottom: 1px solid var(--rule); }
+    .drawer section:last-of-type { border-bottom: none; }
+    .drawer h4 { margin: 0 0 4px; font-family: var(--serif); font-size: 17px; font-weight: 600; }
+    .hint { margin: 0 0 12px; color: var(--muted); font-size: 13px; line-height: 1.4; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .chip { display: inline-flex; align-items: center; gap: 2px; padding: 3px 4px 3px 10px; font-size: 13px;
+            background: #fffdf8; border: 1px solid var(--rule); border-radius: 3px; }
+    .chips.on-task .chip { border-left: 3px solid #2f7d5b; }
+    .chips.distraction .chip { border-left: 3px solid var(--accent); }
+    .chip button { background: none; border: none; color: var(--faint); font-size: 15px; padding: 0 4px; }
+    .chip button:hover { color: var(--accent); }
+    .chips.rows { flex-direction: column; align-items: stretch; }
+    .chips.rows .chip { justify-content: space-between; padding: 6px 4px 6px 10px; }
+    .add { display: flex; gap: 8px; }
+    .add input, .number input { font: inherit; font-size: 13px; color: var(--ink); background: #fffdf8;
+                                border: 1px solid var(--rule); border-radius: 3px; padding: 7px 10px; }
+    .add input { flex: 1; }
+    .add input:focus, .number input:focus { outline: none; border-color: var(--ink); }
+    .number { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; font-size: 13px; }
+    .number input { width: 80px; text-align: right; }
+    .danger { background: none; border: 1px solid var(--accent); color: var(--accent); border-radius: 3px; padding: 7px 14px; font-size: 13px; }
+    .danger:hover { background: var(--accent); color: var(--paper); }
+    #screens-message { margin: 8px 0 0; color: var(--accent); font-size: 13px; }
+
+    @media (max-width: 760px) {
+      .page { padding: 20px; }
+      .figures { grid-template-columns: repeat(2, 1fr); }
+      .figure + .figure { border-left: none; padding-left: 0; }
+      .now { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <div class="brand">Focus Forecast <span class="live" id="live">LIVE</span></div>
-    <div class="header-right">
-      <div class="timer"><span class="label">Session</span><strong id="session-time">0:00:00</strong></div>
-      <button class="end" id="open-settings">⚙ Settings</button>
-      <button class="end" id="end-session">End session</button>
+  <div class="page">
+    <header>
+      <div>
+        <div class="masthead">Focus Forecast</div>
+        <div class="dateline"><span id="today-date"></span><span id="live"> · <span class="recording">Recording</span></span></div>
+      </div>
+      <div class="header-right">
+        <span class="timer" id="session-time">0:00:00</span>
+        <button class="text-btn" id="open-settings">Settings</button>
+        <button class="text-btn" id="end-session">End session</button>
+      </div>
+    </header>
+
+    <!-- Calibration banner: first run, or when the screen setup has changed -->
+    <div class="banner" id="calib-banner" hidden>
+      <span id="calib-banner-text"></span>
+      <button class="solid-btn" id="calib-now">Calibrate now</button>
+      <button class="text-btn" id="calib-later">Later</button>
     </div>
-  </header>
 
-  <!-- Calibration banner: first run, or when the screen setup has changed -->
-  <div class="banner" id="calib-banner" hidden>
-    <span id="calib-banner-text"></span>
-    <button class="start" id="calib-now">Calibrate now</button>
-    <button class="link-btn" id="calib-later">Later</button>
-  </div>
+    <!-- Session summary: replaces "Right now" after "End session" -->
+    <section class="summary now" id="summary" hidden>
+      <div>
+        <div class="kicker">Session complete</div>
+        <h2><span id="sum-deep">0%</span> deep focus</h2>
+        <p id="sum-detail"></p>
+        <button class="solid-btn" id="start-session">Start a new session</button>
+      </div>
+    </section>
 
-  <!-- Session summary: replaces the live state after "End session" -->
-  <div class="card summary" id="summary" hidden>
-    <div class="label">Session complete</div>
-    <h2><span id="sum-deep">0%</span> deep focus</h2>
-    <p id="sum-detail"></p>
-    <button class="start" id="start-session">Start new session</button>
-  </div>
+    <!-- Right now: the current state in words -->
+    <section class="now" id="hero">
+      <div>
+        <div class="kicker">Right now</div>
+        <h1 class="headline" id="state-label">Starting…</h1>
+        <p class="standfirst"><span id="state-message">Waiting for data…</span> <span class="for" id="state-for"></span></p>
+      </div>
+    </section>
 
-  <!-- Current state: ring fill = focus level, colour = state -->
-  <div class="card hero" id="hero">
-    <div class="ring" id="ring"><div class="ring-inner"><span id="ring-label">…</span></div></div>
-    <div>
-      <div class="label">Right now</div>
-      <h2 id="state-label">Starting…</h2>
-      <p id="state-message">Waiting for data…</p>
+    <!-- This session in figures -->
+    <div class="figures">
+      <div class="figure flow"><span class="name"><i style="background:#2f7d5b"></i>Deep focus</span><strong id="time-flow">0 min</strong></div>
+      <div class="figure hooked"><span class="name"><i style="background:#c2532d"></i>Hooked</span><strong id="time-hooked">0 min</strong></div>
+      <div class="figure zoned"><span class="name"><i style="background:#4f6d9a"></i>Zoned out</span><strong id="time-zonedOut">0 min</strong></div>
+      <div class="figure stress"><span class="name"><i style="background:#6b5a8e"></i>Stress</span><strong id="stress-level">–</strong><span class="muted">needs heart-rate data</span></div>
     </div>
+
+    <hr>
+
+    <!-- One chart: the menu swaps what it shows (hover for values) -->
+    <section>
+      <div class="section-head">
+        <h3 id="chart-title">Focus, last 30 minutes</h3>
+        <select id="signal-select"></select>
+      </div>
+      <div class="chart-box"><canvas id="chart"></canvas></div>
+      <p class="muted" id="chart-note"></p>
+    </section>
+
+    <hr>
+
+    <!-- What each sensor sees (brief: raw biometrics only as a drill-down) -->
+    <section>
+      <div class="section-head"><h3>Sensors</h3><span class="muted">What each one sees right now. Click a row for detail.</span></div>
+      <div id="raw"><p class="muted">Waiting for data…</p></div>
+    </section>
+
+    <footer class="muted" id="versions"></footer>
   </div>
 
-  <!-- Session so far -->
-  <div class="tiles">
-    <div class="tile"><span class="label">Stress</span><strong id="stress-level">–</strong><span class="muted">needs heart-rate data</span></div>
-    <div class="tile"><span class="label"><span class="dot" style="background:#3ecf8e"></span>Deep focus</span><strong id="time-flow">0 min</strong></div>
-    <div class="tile"><span class="label"><span class="dot" style="background:#f5a524"></span>Hooked</span><strong id="time-hooked">0 min</strong></div>
-    <div class="tile"><span class="label"><span class="dot" style="background:#8f9cf2"></span>Zoned out</span><strong id="time-zonedOut">0 min</strong></div>
-  </div>
-
-  <!-- One chart: the dropdown swaps what it shows (hover for values) -->
-  <div class="card">
-    <div class="card-head">
-      <h3 id="chart-title">Focus · last 30 minutes</h3>
-      <select id="signal-select"></select>
-    </div>
-    <div class="chart-box"><canvas id="chart"></canvas></div>
-    <p class="muted" id="chart-note"></p>
-  </div>
-
-  <!-- Raw readings, one dropdown per sensor (brief: raw biometrics only as a drill-down) -->
-  <div class="card">
-    <div class="card-head"><h3>Details · raw readings</h3></div>
-    <div id="raw"><p class="muted">Waiting for data…</p></div>
-    <p class="muted" id="versions"></p>
-  </div>
-
-  <!-- Settings panel (opened with the ⚙ Settings button). Changes save straight away. -->
+  <!-- Settings panel (opened with the Settings button). Changes save straight away. -->
   <div class="backdrop" id="settings-backdrop" hidden></div>
   <aside class="drawer" id="settings" hidden>
     <div class="drawer-head">
       <h3>Settings</h3>
       <button class="icon-btn" id="close-settings" title="Close">×</button>
     </div>
-    <p class="hint">Changes save automatically and apply straight away.</p>
+    <p class="hint" style="margin-top: 10px;">Changes save automatically and apply straight away.</p>
 
     <section>
-      <h4>Work apps &amp; sites</h4>
-      <p class="hint">Words matched against the app name or window title, e.g. "figma" or "outlook".</p>
+      <h4>Work apps and sites</h4>
+      <p class="hint">Words matched against the app name or window title, like "figma" or "outlook".</p>
       <div class="chips on-task" id="list-onTask"></div>
-      <form class="add" data-list="onTask"><input placeholder="Add a work app or site"><button>Add</button></form>
+      <form class="add" data-list="onTask"><input placeholder="Add a work app or site"><button class="solid-btn">Add</button></form>
     </section>
 
     <section>
       <h4>Distractions</h4>
-      <p class="hint">Checked first: a YouTube tab in Chrome counts as a distraction.</p>
+      <p class="hint">Checked first, so a YouTube tab in Chrome counts as a distraction.</p>
       <div class="chips distraction" id="list-distraction"></div>
-      <form class="add" data-list="distraction"><input placeholder="Add a distracting app or site"><button>Add</button></form>
+      <form class="add" data-list="distraction"><input placeholder="Add a distracting app or site"><button class="solid-btn">Add</button></form>
     </section>
 
     <section>
       <h4>Suggestions</h4>
       <p class="hint">What the app can suggest when your focus is dropping.</p>
       <div class="chips rows" id="list-suggestions"></div>
-      <form class="add" data-list="suggestions"><input placeholder="Add a suggestion"><button>Add</button></form>
+      <form class="add" data-list="suggestions"><input placeholder="Add a suggestion"><button class="solid-btn">Add</button></form>
     </section>
 
     <section>
@@ -235,10 +250,10 @@
 
     <section>
       <h4>Screens</h4>
-      <p class="hint">Teaches the app where you look for each screen, so looking at another monitor isn't "looking away".
-        Only needed again if you change your screens.</p>
+      <p class="hint">Teaches the app where you look for each screen, so looking at another monitor isn't counted as
+        looking away. Only needed again if you change your screens.</p>
       <p id="screens-status" style="margin: 0 0 10px; font-size: 13px;"></p>
-      <button class="end" id="recalibrate">Calibrate screens</button>
+      <button class="text-btn" id="recalibrate">Calibrate screens</button>
       <p id="screens-message"></p>
     </section>
 

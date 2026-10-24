@@ -3,7 +3,7 @@
 
 const params = new URLSearchParams(location.search);
 document.getElementById('progress').textContent =
-  `Screen ${params.get('screen')} of ${params.get('total')} · keep your head and eyes on it · Esc to cancel`;
+  `Screen ${params.get('screen')} of ${params.get('total')}. Keep your head and eyes on it. Press Esc to cancel.`;
 
 // 1 s to settle + the measuring time.
 document.getElementById('ring').style.animationDuration = `${Number(params.get('seconds')) + 1}s`;
