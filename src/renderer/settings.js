@@ -27,7 +27,7 @@ backdrop.addEventListener('click', closeSettings);
 const LISTS = {
   onTask:      { get: (s) => s.categories.onTask,      save: (list) => ({ categories: { onTask: list } }),      lower: true },
   distraction: { get: (s) => s.categories.distraction, save: (list) => ({ categories: { distraction: list } }), lower: true },
-  suggestions: { get: (s) => s.Iterations || [],       save: (list) => ({ Iterations: list }),                  lower: false },
+  suggestions: { get: (s) => s.Interactions || [],     save: (list) => ({ Interactions: list }),                lower: false },
 };
 
 async function saveList(key, list) {
@@ -68,6 +68,11 @@ for (const form of document.querySelectorAll('form[data-list]')) {
 const NUMBERS = {
   'away-minutes':  { get: (s) => s.selfReport.awayMinutes,     save: (n) => ({ selfReport: { awayMinutes: n } }) },
   'popup-seconds': { get: (s) => s.selfReport.popupTimeoutSec, save: (n) => ({ selfReport: { popupTimeoutSec: n } }) },
+  'hold-start':    { get: (s) => s.alerts.holdStartSeconds,    save: (n) => ({ alerts: { holdStartSeconds: n } }) },
+  'hold-up':       { get: (s) => s.alerts.holdStepUpSeconds,   save: (n) => ({ alerts: { holdStepUpSeconds: n } }) },
+  'hold-max':      { get: (s) => s.alerts.holdMaxSeconds,      save: (n) => ({ alerts: { holdMaxSeconds: n } }) },
+  'calm-minutes':  { get: (s) => s.alerts.calmMinutes,         save: (n) => ({ alerts: { calmMinutes: n } }) },
+  'hold-down':     { get: (s) => s.alerts.holdStepDownSeconds, save: (n) => ({ alerts: { holdStepDownSeconds: n } }) },
 };
 for (const [id, setting] of Object.entries(NUMBERS)) {
   const input = document.getElementById(id);
@@ -91,6 +96,25 @@ resetButton.addEventListener('click', async () => {
   resetArmed = false;
   resetButton.textContent = 'Reset to defaults';
   render(await settingsApi.reset());
+});
+
+// ---- Reset learnt data (click twice to confirm) ----
+const resetDataButton = document.getElementById('reset-data');
+const resetDataMessage = document.getElementById('reset-data-message');
+let resetDataArmed = false;
+resetDataButton.addEventListener('click', async () => {
+  if (!resetDataArmed) {
+    resetDataArmed = true;
+    resetDataButton.textContent = 'Click again to reset learnt data';
+    setTimeout(() => { resetDataArmed = false; resetDataButton.textContent = 'Reset learnt data'; }, 4000);
+    return;
+  }
+  resetDataArmed = false;
+  resetDataButton.textContent = 'Reset learnt data';
+  const { folder, moved } = await settingsApi.resetData();
+  resetDataMessage.textContent = folder
+    ? `Done. Moved ${moved.join(', ')} to ${folder}`
+    : 'Nothing to reset yet.';
 });
 
 // Show the settings in the panel.

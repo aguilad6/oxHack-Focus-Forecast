@@ -18,6 +18,15 @@
     "awayDistance": 0.15,
     "gazeWeight": 0.5
   },
+  "alerts": {
+    "holdStartSeconds": 30,
+    "holdStepUpSeconds": 15,
+    "holdMaxSeconds": 300,
+    "calmMinutes": 10,
+    "holdStepDownSeconds": 30,
+    "epsilon": 0.1
+  },
+  "Interactions": ["Take a 60 second break.", "Take a 5 minute break.", "Go for a walk outside.", "Stretch. Palms to the sky."]
   "voice": {
     "enabled": true,
     "voiceId": "JBFqnCBsd6RMkjVDRZzb",
