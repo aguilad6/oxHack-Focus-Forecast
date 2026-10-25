@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <!-- Only allow our own local files to run: blocks injected scripts. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; media-src 'self' blob:">
   <title>Focus Forecast</title>
   <style>
     /* "Forecast paper": warm paper, dark ink, one accent per state, serif headlines, thin rules. */
@@ -262,6 +262,12 @@
         <input type="number" id="calm-minutes" min="1" step="1"></label>
       <label class="number">Shrink it by (seconds)
         <input type="number" id="hold-down" min="0" step="5"></label>
+      <h4>Voice</h4>
+      <p class="hint">Says the warning and suggestion out loud when your focus drops.</p>
+      <label class="number">Speak warnings out loud <input type="checkbox" id="voice-enabled" style="width: auto;"></label>
+      <p id="voice-status" style="margin: 10px 0; font-size: 13px;"></p>
+      <button class="text-btn" id="voice-test">Test voice</button>
+      <p id="voice-message" class="hint" style="margin-top: 8px;"></p>
     </section>
 
     <section>
@@ -290,5 +296,6 @@
   <script src="renderer.js"></script>
   <script src="settings.js"></script>
   <script src="calibration.js"></script>
+  <script src="voice.js"></script>
 </body>
 </html>

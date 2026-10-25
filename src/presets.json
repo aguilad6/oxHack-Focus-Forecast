@@ -27,4 +27,10 @@
     "epsilon": 0.1
   },
   "Interactions": ["Take a 60 second break.", "Take a 5 minute break.", "Go for a walk outside.", "Stretch. Palms to the sky."]
+  "voice": {
+    "enabled": true,
+    "voiceId": "JBFqnCBsd6RMkjVDRZzb",
+    "model": "eleven_flash_v2_5"
+  },
+  "Iterations":["Take a 60 second brake.", "Take a 5 minute break", "Go for a walk outside", "Stretch. Palms to the sky."]
 }

@@ -6,6 +6,7 @@ const { getConfig, updateConfig } = require('../config');
 const presets = require('../presets.json');
 const { resetLearntData } = require('./resetData');
 const { refreshUsual } = require('./score');
+require('./voice'); // the Voice section in Settings (on/off, Test voice)
 
 ipcMain.handle('settings-get', () => getConfig());
 

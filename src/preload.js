@@ -28,6 +28,13 @@ contextBridge.exposeInMainWorld('focusApi', {
     cancel: () => ipcRenderer.send('calibration-cancel'),
     onStatus: (callback) => ipcRenderer.on('calibration-status', (_event, status) => callback(status)),
   },
+  // Voice: play ElevenLabs clips / built-in voice, and the Settings section (status, Test voice).
+  voice: {
+    status: () => ipcRenderer.invoke('voice-status'),
+    test: () => ipcRenderer.invoke('voice-test'),
+    onPlay: (callback) => ipcRenderer.on('voice-play', (_event, clip) => callback(clip)),
+    onFallback: (callback) => ipcRenderer.on('voice-fallback', (_event, text) => callback(text)),
+  },
   // Settings panel: each returns the full, updated settings.
   settings: {
     get: () => ipcRenderer.invoke('settings-get'),
