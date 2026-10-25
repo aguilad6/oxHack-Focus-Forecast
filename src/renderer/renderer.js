@@ -17,6 +17,7 @@ if (typeof Chart === 'undefined') {
 const WINDOW_MINUTES = 30; // how much history the chart shows
 let sessionStart = Date.now();
 let lastOutputTime = sessionStart;
+let baseline = null; // debugging: { n, mean, sd } alert.js compares focus against, or null
 
 // How each state is shown: headline, colour, and a plain-language line.
 const STATES = {
@@ -96,7 +97,13 @@ const chart = new Chart(document.getElementById('chart'), {
       pointHoverBackgroundColor: '#f6f3ec',
       pointHoverBorderWidth: 2,
       tension: 0.3,
-    }],
+    },
+    // Debugging: the mean focus alert.js compares against, with a ±1 standard deviation band.
+    // Each is a flat line across the chart; see showBaseline().
+    { data: [], borderWidth: 0, pointRadius: 0, fill: false },                      // 1: mean - sd
+    { data: [], borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: '#4f6d9a22' }, // 2: mean + sd, shaded down to 1
+    { data: [], borderWidth: 1.5, borderDash: [6, 4], borderColor: '#4f6d9a', pointRadius: 0, fill: false }, // 3: mean
+    ],
   },
   options: {
     animation: false,
@@ -107,6 +114,7 @@ const chart = new Chart(document.getElementById('chart'), {
     plugins: {
       legend: { display: false },
       tooltip: {
+        filter: (item) => item.datasetIndex === 0, // only the signal itself, not the baseline lines
         displayColors: false,
         backgroundColor: '#fffdf8',
         titleColor: '#6f6a60',
@@ -154,6 +162,7 @@ function showSignal(key) {
   dataset.borderColor = signal.color;
   chart.options.scales.y.min = signal.yMin;
   chart.options.scales.y.max = signal.yMax;
+  showBaseline();
   chart.update('none');
 
   document.getElementById('chart-title').textContent = `${signal.label}, last ${WINDOW_MINUTES} minutes`;
@@ -260,6 +269,10 @@ const SENSORS = {
       ['Looking at', lookingText],
       ['Expression', expressionText],
       ['Blinks', (r) => r.blinks],
+      ['Eyes shut for', (r) => (r.eyesClosedMs ? `${(r.eyesClosedMs / 1000).toFixed(1)} s` : 'Open')],
+      ['Heart rate', (r) => (r.pulse === null || r.pulse === undefined ? 'Warming up' : `${Math.round(r.pulse)} bpm`)],
+      ['Breathing', (r) => (r.breathing === null || r.breathing === undefined ? 'Warming up' : `${r.breathing.toFixed(1)} per min`)],
+      ['HRV', (r) => (r.hrv === null || r.hrv === undefined ? 'Warming up' : `${Math.round(r.hrv)} ms`)],
       ['Talking', (r) => yesNo(r.talking)],
       ['Eyes left–right', (r) => twoDecimals(r.gazeH)],
       ['Eyes up–down', (r) => twoDecimals(r.gazeV)],
@@ -382,6 +395,7 @@ function showOutput(output) {
   // Slide the chart's time window so "now" is at the right edge.
   chart.options.scales.x.min = output.t - WINDOW_MINUTES * 60 * 1000;
   chart.options.scales.x.max = output.t;
+  showBaseline();
   chart.update('none');
 
   // "Right now": headline in the state's colour, a plain-language line, and how long it's lasted.
@@ -400,6 +414,19 @@ function showOutput(output) {
 
   updateSession(output);
 }
+
+// ---- Debugging: focus baseline from alert.js ----
+// Draw the mean and ±1 sd as flat lines across the visible time range (focus chart only).
+function showBaseline() {
+  const { min, max } = chart.options.scales.x;
+  const visible = selected === 'focus' && baseline && min !== undefined;
+  const flat = (y) => (visible ? [{ x: min, y }, { x: max, y }] : []);
+  chart.data.datasets[1].data = flat(baseline?.mean - baseline?.sd);
+  chart.data.datasets[2].data = flat(baseline?.mean + baseline?.sd);
+  chart.data.datasets[3].data = flat(baseline?.mean);
+}
+
+window.focusApi.onFocusBaseline((value) => { baseline = value; });
 
 // ---- Sessions ----
 document.getElementById('end-session').addEventListener('click', () => window.focusApi.endSession());
@@ -434,7 +461,6 @@ window.focusApi.onSessionStarted(({ t }) => {
   chart.update('none');
   for (const state of Object.keys(stateSeconds)) stateSeconds[state] = 0;
   updateSession({ t, state: null });
-  resetFakeScore();
 
   currentState = null;
   document.documentElement.style.removeProperty('--state');
@@ -449,10 +475,11 @@ window.focusApi.onSessionStarted(({ t }) => {
 
 // ---- Incoming readings ----
 window.focusApi.onReading((reading) => {
+  // The focus score from score.js drives the headline, ring and chart rather than a sensor card.
+  if (reading.source === 'focus') {
+    showOutput(reading);
+    return;
+  }
   showRaw(reading);
   recordSignals(reading);
-
-  // TEMPORARY: fake score until main.js sends the real one from scoring.js.
-  const output = fakeScore(reading);
-  if (output) showOutput(output);
 });

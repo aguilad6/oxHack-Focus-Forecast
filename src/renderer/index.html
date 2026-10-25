@@ -249,6 +249,22 @@
     </section>
 
     <section>
+      <h4>Refocus pop-ups</h4>
+      <p class="hint">How long focus has to stay low before a pop-up. The wait grows after each pop-up
+        so it doesn't nag, and shrinks again once you've stayed focused for a while.</p>
+      <label class="number">First wait (seconds)
+        <input type="number" id="hold-start" min="5" step="5"></label>
+      <label class="number">Add after each pop-up (seconds)
+        <input type="number" id="hold-up" min="0" step="5"></label>
+      <label class="number">Longest wait (seconds)
+        <input type="number" id="hold-max" min="5" step="15"></label>
+      <label class="number">Shrink the wait after staying focused for (minutes)
+        <input type="number" id="calm-minutes" min="1" step="1"></label>
+      <label class="number">Shrink it by (seconds)
+        <input type="number" id="hold-down" min="0" step="5"></label>
+    </section>
+
+    <section>
       <h4>Screens</h4>
       <p class="hint">Teaches the app where you look for each screen, so looking at another monitor isn't counted as
         looking away. Only needed again if you change your screens.</p>
@@ -258,12 +274,19 @@
     </section>
 
     <section>
+      <h4>Learnt data</h4>
+      <p class="hint">Your usual focus level, heart rate and breathing, and which suggestions work for you.
+        Resetting starts them again from scratch. Nothing is deleted: the old files move to a backup folder.</p>
+      <button class="danger" id="reset-data">Reset learnt data</button>
+      <p class="hint" id="reset-data-message"></p>
+    </section>
+
+    <section>
       <button class="danger" id="reset-settings">Reset to defaults</button>
     </section>
   </aside>
 
   <script src="../../node_modules/chart.js/dist/chart.umd.min.js"></script>
-  <script src="fakeScore.js"></script>
   <script src="renderer.js"></script>
   <script src="settings.js"></script>
   <script src="calibration.js"></script>

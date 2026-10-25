@@ -10,8 +10,12 @@ contextBridge.exposeInMainWorld('focusApi', {
   },
   // Lets the page react to each reading main.js sends, e.g. { source: 'window', app: 'Code', ... }
   onReading: (callback) => ipcRenderer.on('reading', (_event, reading) => callback(reading)),
+  // Debugging: the mean and standard deviation alert.js compares focus against, { n, mean, sd } or null.
+  onFocusBaseline: (callback) => ipcRenderer.on('focus-baseline', (_event, baseline) => callback(baseline)),
   // Used by the self-report pop-up to send the clicked 1-5 rating to main.js.
   answerSelfReport: (rating) => ipcRenderer.send('self-report-answer', rating),
+  // Used by the refocus pop-up's "Got it" / × buttons.
+  closeFocusPopup: () => ipcRenderer.send('focus-popup-close'),
   // Session buttons, and messages when a session starts/ends.
   endSession: () => ipcRenderer.send('end-session'),
   startSession: () => ipcRenderer.send('start-session'),
@@ -29,5 +33,7 @@ contextBridge.exposeInMainWorld('focusApi', {
     get: () => ipcRenderer.invoke('settings-get'),
     update: (changes) => ipcRenderer.invoke('settings-update', changes),
     reset: () => ipcRenderer.invoke('settings-reset'),
+    // Moves the learnt data to a backup folder; returns { folder, moved }.
+    resetData: () => ipcRenderer.invoke('data-reset'),
   },
 });

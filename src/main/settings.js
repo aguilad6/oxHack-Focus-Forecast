@@ -4,6 +4,8 @@
 const { ipcMain } = require('electron');
 const { getConfig, updateConfig } = require('../config');
 const presets = require('../presets.json');
+const { resetLearntData } = require('./resetData');
+const { refreshUsual } = require('./score');
 
 ipcMain.handle('settings-get', () => getConfig());
 
@@ -13,3 +15,10 @@ ipcMain.handle('settings-update', (_event, changes) => updateConfig(changes));
 
 // Write every default back over the user's settings.
 ipcMain.handle('settings-reset', () => updateConfig(presets));
+
+// Move the learnt averages and suggestion results into a backup folder. Returns { folder, moved }.
+ipcMain.handle('data-reset', () => {
+  const result = resetLearntData();
+  refreshUsual();
+  return result;
+});

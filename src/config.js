@@ -11,6 +11,13 @@
 //   categories.distraction/onTask  words matched (lowercase) against the app name and window title,
 //                                e.g. "LinkedIn - Google Chrome". Distraction is checked first, so a
 //                                YouTube tab in Chrome counts as distraction. Matching neither = 'neutral'.
+//   alerts.holdStartSeconds      focus must stay low this long before the first "refocus" pop-up
+//   alerts.holdStepUpSeconds     ...and this much longer after every pop-up (so it doesn't nag)
+//   alerts.holdMaxSeconds        ...up to this
+//   alerts.calmMinutes           every this many minutes without low focus, the wait shrinks again
+//   alerts.holdStepDownSeconds   ...by this much, back down to holdStartSeconds
+//   alerts.epsilon               chance (0-1) of trying a random suggestion instead of the best one so far
+//   Interactions                 suggestions the "refocus" pop-up can show
 
 const fs = require('fs');
 const os = require('os');
@@ -36,7 +43,14 @@ function merge(defaults, overrides) {
 // The user's file as written (only their own settings), or null if it can't be read.
 function readUserFile() {
   try {
-    return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const user = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    // Older files spelled the suggestions list "Iterations": rename it once.
+    if (user && 'Iterations' in user) {
+      user.Interactions ??= user.Iterations;
+      delete user.Iterations;
+      writeUserFile(user);
+    }
+    return user;
   } catch (err) {
     if (err.code !== 'ENOENT') console.error(`Can't read ${configPath}, keeping previous settings:`, err.message);
     return null;
