@@ -12,6 +12,8 @@ const { askSelfReport } = require('./selfReport');
 const { startPresageFace, stopPresageFace, readPresageFace } = require('./presageFace');
 require('./settings'); // lets the settings panel read and change the user's settings file
 const { initCalibration, feedCalibration, lookingAt, notifyCalibration } = require('./calibration');
+const { resetFocusScore, updateFocusScore } = require('./score');
+const { startInterventions, stopInterventions, feedFocus, getBaseline } = require('./intervention');
 
 // Load .env (PRESAGE_API_KEY, USE_PRESAGE) if this laptop has one.
 try {
@@ -80,6 +82,8 @@ function handleReading(reading) {
 function startSession() {
   console.log('Recording to', startRecording());
   resetAway();
+  resetFocusScore();
+  startInterventions();
   startPresage();
   sessionActive = true;
   win.webContents.send('session-started', { t: Date.now() });
@@ -93,6 +97,7 @@ function endSession(afterwards) {
     if (rating) handleReading({ t: Date.now(), source: 'selfReport', trigger: 'endOfSession', rating });
     sessionActive = false;
     endingSession = false;
+    stopInterventions();
     stopRecording();
     await stopPresage();
     if (!win.isDestroyed()) win.webContents.send('session-ended', { rating });
@@ -149,8 +154,16 @@ function createWindow() {
     }
 
     if (!sessionActive || win.isDestroyed()) return;
-    for (const reading of [windowReading, inputReading, faceReading]) {
-      if (reading) handleReading(reading);
+    // Window and face go in before input: the focus score comes out on the input reading.
+    for (const reading of [windowReading, faceReading, inputReading]) {
+      if (!reading) continue;
+      handleReading(reading);
+      const focus = updateFocusScore(reading);
+      if (focus) {
+        handleReading(focus);
+        feedFocus(focus); // may show a "refocus" pop-up
+        win.webContents.send('focus-baseline', getBaseline()); // debugging: drawn on the focus chart
+      }
     }
   }, TICK_MS);
 

@@ -3,7 +3,9 @@
 // One new file per app run. These files are used to replay sessions without the camera
 // and to train the models. data/ is gitignored: recordings never leave the laptop.
 //
-// It also keeps a summary per day in data/daily-summary.json, for the focus score and heart rate:
+// It also keeps a summary per day in data/daily-summary.json, for the focus score (only while in or
+// just after the 'flow' state, so it describes your focused level for alert.js) and the vitals
+// (heart rate, breathing, HRV: score.js compares the current values against your usual ones):
 //   { "2026-10-24": { "focus": { "n": 3600, "mean": 64.2, "meanSquare": 4290.1, "sd": 12.3 }, "pulse": ... } }
 // n = number of readings. meanSquare = mean of the squared values: with n and mean it lets
 // alert.js combine several days into one exact mean and standard deviation.
@@ -15,6 +17,12 @@ const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const SUMMARY_FILE = path.join(DATA_DIR, 'daily-summary.json');
 
 let file = null; // path of the current session file
+
+// A focus reading counts towards the daily summary if the state was 'flow' at least once in this many
+// seconds before it. So a dip right after flow is included (it's what alert.js looks for), but long
+// stretches on distractions or breaks aren't.
+const FLOW_RECENT_SECONDS = 10;
+let lastFlowTime = null; // when the state was last 'flow'
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -32,6 +40,7 @@ function startRecording() {
   const now = new Date();
   const stamp = `${dayKey(now)}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
   file = path.join(DATA_DIR, `session-${stamp}.jsonl`);
+  lastFlowTime = null;
   return file;
 }
 
@@ -54,9 +63,16 @@ function addToStats(stats, value) {
   return { n, mean, meanSquare, sd };
 }
 
-// Update today's summary if this reading has a focus score or a heart rate.
+// Update today's summary if this reading has a focus score or vitals.
 function updateDailySummary(reading) {
-  const values = { focus: reading.focus, pulse: reading.pulse };
+  if (reading.state === 'flow') lastFlowTime = reading.t;
+  const recentFlow = lastFlowTime !== null && reading.t - lastFlowTime <= FLOW_RECENT_SECONDS * 1000;
+  const values = {
+    focus: recentFlow ? reading.focus : undefined,
+    pulse: reading.pulse,
+    breathing: reading.breathing,
+    hrv: reading.hrv,
+  };
   if (!Object.values(values).some((v) => typeof v === 'number')) return;
 
   const summary = readDailySummary();
@@ -80,4 +96,4 @@ function stopRecording() {
   file = null;
 }
 
-module.exports = { startRecording, record, stopRecording, readDailySummary, dayKey };
+module.exports = { DATA_DIR, startRecording, record, stopRecording, readDailySummary, dayKey };
