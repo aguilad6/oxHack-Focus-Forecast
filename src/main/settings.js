@@ -4,6 +4,7 @@
 const { ipcMain } = require('electron');
 const { getConfig, updateConfig } = require('../config');
 const presets = require('../presets.json');
+require('./voice'); // the Voice section in Settings (on/off, Test voice)
 
 ipcMain.handle('settings-get', () => getConfig());
 
